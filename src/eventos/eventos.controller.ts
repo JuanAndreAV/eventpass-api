@@ -8,13 +8,13 @@ export class EventosController {
   constructor(private readonly eventosService: EventosService) {}
 
   @Post()
-  create(@Body() createEventoDto: CreateEventoDto) {
-    return this.eventosService.create(createEventoDto);
+  async create(@Body() createEventoDto: CreateEventoDto) {
+    return  await this.eventosService.createEvento(createEventoDto);
   }
 
   @Get()
-  findAll() {
-    return this.eventosService.findAll();
+  async findAll() {
+    return await this.eventosService.getAllEvents();
   }
 
   @Get(':id')

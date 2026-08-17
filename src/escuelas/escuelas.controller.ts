@@ -8,18 +8,18 @@ export class EscuelasController {
   constructor(private readonly escuelasService: EscuelasService) {}
 
   @Post()
-  create(@Body() createEscuelaDto: CreateEscuelaDto) {
-    return this.escuelasService.create(createEscuelaDto);
+  async create(@Body() createEscuelaDto: CreateEscuelaDto) {
+     return await this.escuelasService.createEscuela(createEscuelaDto);
   }
 
   @Get()
-  findAll() {
-    return this.escuelasService.findAll();
+  async findAll() {
+    return await this.escuelasService.findAllEscuelas();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.escuelasService.findOne(+id);
+  async findOne(@Param('id') id: string) {
+    return await this.escuelasService.findOne(+id);
   }
 
   @Patch(':id')

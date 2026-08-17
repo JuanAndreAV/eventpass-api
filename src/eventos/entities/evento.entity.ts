@@ -4,6 +4,7 @@ import { Asistente } from '../../asistentes/entities/asistente.entity';
 
 export enum TipoEvento {
   CONCIERTO = 'CONCIERTO',
+  CONFERENCIA = 'CONFERENCIA',  
   EXPOSICION = 'EXPOSICION',
   TEATRO = 'TEATRO',
   CONGRESO = 'CONGRESO',
@@ -41,8 +42,7 @@ export class Evento {
   @Column({ type: 'timestamp' })
   fechaInicio: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
-  fechaFin: Date;
+  
 
   @Column({ default: true })
   activo: boolean;
