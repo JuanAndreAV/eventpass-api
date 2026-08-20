@@ -14,6 +14,9 @@ import { Estudiante } from './estudiantes/entities/estudiante.entity';
 import { Evento } from './eventos/entities/evento.entity';
 import { Asistente } from './asistentes/entities/asistente.entity';
 import { AccesoLog } from './acceso-log/entities/acceso-log.entity';
+import { UsuariosModule } from './usuarios/usuarios.module';
+import { AuthModule } from './auth/auth.module';
+import { UsuariosModule } from './usuarios/usuarios.module';
 
 
 @Module({
@@ -36,7 +39,7 @@ import { AccesoLog } from './acceso-log/entities/acceso-log.entity';
         ssl: config.get<string>('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
       }),
     }),
-    AccesoLogModule, AsistentesModule, EscuelasModule, EstudiantesModule, EventosModule],
+    AccesoLogModule, AsistentesModule, EscuelasModule, EstudiantesModule, EventosModule, UsuariosModule, AuthModule],
   controllers: [AppController],
   providers: [AppService],
 })
