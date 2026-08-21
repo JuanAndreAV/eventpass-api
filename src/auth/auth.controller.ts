@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express'; // 👈 Agregado 'type'
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -16,7 +16,7 @@ export class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 1000 * 60 * 60 * 8, // 8 horas
+      maxAge: 1000 * 60 * 60 * 8,
     });
 
     return {
@@ -26,14 +26,14 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(@Res({ passthrough: true }) res: express.Response) {
+  async logout(@Res({ passthrough: true }) res: Response) { // 👈 Cambiado express.Response por Response
     res.clearCookie('jwt');
     return { mensaje: 'Sesión cerrada correctamente' };
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
-  getProfile(@Req() req: express.Request) {
+  getProfile(@Req() req: Request) { // 👈 Cambiado express.Request por Request
     return req.user;
   }
 }

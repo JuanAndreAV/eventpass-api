@@ -9,26 +9,26 @@ export class UsuariosController {
 
   @Post()
   create(@Body() createUsuarioDto: CreateUsuarioDto) {
-    return this.usuariosService.create(createUsuarioDto);
+    return 
   }
 
   @Get()
   findAll() {
-    return this.usuariosService.findAll();
+    return 
   }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.usuariosService.findOne(+id);
+    return 
   }
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateUsuarioDto: UpdateUsuarioDto) {
-    return this.usuariosService.update(+id, updateUsuarioDto);
+    return 
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.usuariosService.remove(+id);
+    return 
   }
 }
