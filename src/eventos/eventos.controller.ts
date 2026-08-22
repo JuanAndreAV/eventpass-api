@@ -9,26 +9,26 @@ export class EventosController {
 
   @Post()
   async create(@Body() createEventoDto: CreateEventoDto) {
-    return  await this.eventosService.createEvento(createEventoDto);
+    return await this.eventosService.create(createEventoDto);
   }
 
   @Get()
   async findAll() {
-    return await this.eventosService.getAllEvents();
+    return await this.eventosService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.eventosService.findOne(+id);
+  async findOne(@Param('id') id: string) {
+    return await this.eventosService.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateEventoDto: UpdateEventoDto) {
-    return this.eventosService.update(+id, updateEventoDto);
+  async update(@Param('id') id: string, @Body() updateEventoDto: UpdateEventoDto) {
+    return await this.eventosService.update(id, updateEventoDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.eventosService.remove(+id);
+  async remove(@Param('id') id: string) {
+    return await this.eventosService.remove(id);
   }
 }

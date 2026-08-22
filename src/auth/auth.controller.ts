@@ -30,6 +30,7 @@ export class AuthController {
     res.clearCookie('jwt');
     return { mensaje: 'Sesión cerrada correctamente' };
   }
+ 
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')

@@ -15,7 +15,7 @@ export class UsuariosService {
   async findByEmailWithPassword(email: string): Promise<Usuario | null> {
     return this.usuarioRepository
       .createQueryBuilder('usuario')
-      .addSelect('usuario.password') // 👈 Fuerza la selección de la contraseña cifrada
+      .addSelect('usuario.password') 
       .leftJoinAndSelect('usuario.roles', 'roles')
       .where('usuario.email = :email', { email })
       .getOne();

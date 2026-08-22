@@ -1,3 +1,4 @@
+import { Transform } from "class-transformer";
 import { IsUUID, IsInt, IsDateString, IsNotEmpty, IsOptional, IsString, IsEnum, Min, IsBoolean } from "class-validator";
 
 export enum TipoEvento {
@@ -37,9 +38,10 @@ export class CreateEventoDto {
   @Min(1)
   aforoMaximo: number;
 
-  @IsUUID()
   @IsOptional()
-  escuelaId?: string;
+@Transform(({ value }) => (value === '' ? undefined : value))
+@IsUUID()
+escuelaId?: string;
 
   @IsBoolean()
   @IsOptional()

@@ -11,6 +11,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
+  
+
   async login(dto: LoginDto) {
     const usuario = await this.usuariosService.findByEmailWithPassword(dto.email);
 
