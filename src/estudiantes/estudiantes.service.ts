@@ -1,26 +1,79 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Estudiante } from './entities/estudiante.entity';
+import { Escuela } from '../escuelas/entities/escuela.entity';
 import { CreateEstudianteDto } from './dto/create-estudiante.dto';
-import { UpdateEstudianteDto } from './dto/update-estudiante.dto';
 
 @Injectable()
 export class EstudiantesService {
-  create(createEstudianteDto: CreateEstudianteDto) {
-    return 'This action adds a new estudiante';
+  constructor(
+    @InjectRepository(Estudiante)
+    private readonly estudianteRepository: Repository<Estudiante>,
+    @InjectRepository(Escuela)
+    private readonly escuelaRepository: Repository<Escuela>,
+  ) {}
+
+  async create(createEstudianteDto: CreateEstudianteDto): Promise<Estudiante> {
+    const { escuelaId, usuarioId, ...datosEstudiante } = createEstudianteDto;
+
+    // 1. Validar existencia de la Escuela
+    const escuela = await this.escuelaRepository.findOne({
+      where: { id: escuelaId },
+    });
+
+    if (!escuela) {
+      throw new NotFoundException(
+        `La escuela con el ID "${escuelaId}" no existe.`,
+      );
+    }
+
+    // 2. Construir la entidad usando 'undefined' en vez de 'null'
+    const nuevoEstudiante = this.estudianteRepository.create({
+      ...datosEstudiante,
+      escuela,
+      usuario: usuarioId ? ({ id: usuarioId } as any) : undefined,
+    });
+
+    // 3. Guardar en la base de datos
+    try {
+      return await this.estudianteRepository.save(nuevoEstudiante);
+    } catch (error) {
+      this.handleDBExceptions(error);
+    }
   }
 
-  findAll() {
-    return `This action returns all estudiantes`;
-  }
+  private handleDBExceptions(error: any): never {
+    if (error.code === '23505') {
+      const detail: string = error.detail || '';
 
-  findOne(id: number) {
-    return `This action returns a #${id} estudiante`;
-  }
+      if (detail.includes('documento')) {
+        throw new ConflictException(
+          'El número de documento ya se encuentra registrado.',
+        );
+      }
+      if (detail.includes('nfcUid')) {
+        throw new ConflictException(
+          'La tarjeta NFC (UID) ingresada ya pertenece a otro estudiante.',
+        );
+      }
+      if (detail.includes('qrTokenMaster')) {
+        throw new ConflictException(
+          'El token QR maestro generado ya pertenece a otro estudiante.',
+        );
+      }
 
-  update(id: number, updateEstudianteDto: UpdateEstudianteDto) {
-    return `This action updates a #${id} estudiante`;
-  }
+      throw new ConflictException('Ya existe un registro con esos datos únicos.');
+    }
 
-  remove(id: number) {
-    return `This action removes a #${id} estudiante`;
+    console.error('Error no controlado al guardar estudiante:', error);
+    throw new InternalServerErrorException(
+      'Ocurrió un error inesperado al registrar el estudiante.',
+    );
   }
 }

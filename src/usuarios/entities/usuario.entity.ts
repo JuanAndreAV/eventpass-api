@@ -1,56 +1,49 @@
 import {
+  Entity,
+  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  Entity,
-  JoinTable,
-  ManyToMany,
-  OneToOne,
-  PrimaryGeneratedColumn,
   UpdateDateColumn,
+  OneToMany,
+  ManyToMany,
 } from 'typeorm';
-import { Estudiante } from '../../estudiantes/entities/estudiante.entity';
-import { Rol } from '../../rol/entities/rol.entity'
+import { Escuela } from '../../escuelas/entities/escuela.entity';
 
 @Entity('usuarios')
 export class Usuario {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true, length: 20 })
-  documento: string;
-
-  @Column({ unique: true, length: 150 })
-  email: string;
-
-  // Oculto por defecto en select para proteger el hash de bcrypt
-  @Column({ select: false })
-  password: string;
-
-  @Column({ length: 100 })
+  @Column({ type: 'varchar', length: 100 })
   nombres: string;
 
-  @Column({ length: 100 })
+  @Column({ type: 'varchar', length: 100 })
   apellidos: string;
 
-  @Column({ default: true })
+  @Column({ type: 'varchar', length: 150, unique: true })
+  email: string;
+
+  @Column({ type: 'varchar', length: 50, default: 'FORMADOR' })
+  rol: string; // 'ADMIN', 'DIRECTOR', 'APOYO_ADMINISTRATIVO', 'FORMADOR'
+
+  @Column({ type: 'boolean', default: true })
   activo: boolean;
 
-  // Configuración de la tabla pivot/intermedia usuarios_roles
-  @ManyToMany(() => Rol, (rol) => rol.usuarios, { eager: true })
-  @JoinTable({
-    name: 'usuarios_roles',
-    joinColumn: { name: 'usuario_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'rol_id', referencedColumnName: 'id' },
-  })
-  roles: Rol[];
+  // 🏛️ Escuelas donde este usuario es Director (OneToMany)
+  @OneToMany(() => Escuela, (escuela) => escuela.director)
+  escuelasDirector: Escuela[];
 
-  // Relación 1:1 opcional con el perfil de Estudiante (si aplica)
-  @OneToOne(() => Estudiante, (estudiante) => estudiante.usuario)
-  estudiante?: Estudiante;
+  // 📋 Escuelas donde este usuario es Apoyo Administrativo (OneToMany)
+  @OneToMany(() => Escuela, (escuela) => escuela.apoyoAdministrativo)
+  escuelasApoyo: Escuela[];
 
-  @CreateDateColumn({ name: 'created_at' })
+  // 👨‍🏫 Escuelas donde este usuario imparte clases como Formador (ManyToMany)
+  @ManyToMany(() => Escuela, (escuela) => escuela.formadores)
+  escuelasFormador: Escuela[];
+
+  @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date;
 }
