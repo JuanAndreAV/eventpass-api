@@ -1,56 +1,56 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  ManyToOne,
-  OneToMany,
-  ManyToMany,
-  JoinColumn,
-  JoinTable,
+  Entity, PrimaryGeneratedColumn, Column, Index,
+  CreateDateColumn, UpdateDateColumn, ManyToOne, ManyToMany,
+  OneToMany, JoinColumn, JoinTable,
 } from 'typeorm';
 import { Usuario } from '../../usuarios/entities/usuario.entity';
 import { Estudiante } from '../../estudiantes/entities/estudiante.entity';
+import { Evento } from '../../eventos/entities/evento.entity';
 
 @Entity('escuelas')
 export class Escuela {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 150 })
+  @Column({ length: 150 })
   nombre: string;
 
-  @Column({ type: 'varchar', length: 200, nullable: true })
-  direccion: string;
+  @Index({ unique: true })
+  @Column({ unique: true, length: 50 })
+  codigo: string;
 
+  @Column({ length: 200, nullable: true })
+  direccion?: string;
 
+  @Column({ length: 100, nullable: true })
+  email?: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  email: string;
+  @Column({ length: 50, nullable: true })
+  telefono?: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  telefono: string;
-
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  telefonoSecundario: string;
+  @Column({ length: 50, nullable: true, name: 'telefono_secundario' })
+  telefonoSecundario?: string;
 
   @Column({ type: 'text', nullable: true })
-  descripcion: string;
+  descripcion?: string;
 
-  @Column({ type: 'boolean', default: true })
+  @Column({ default: true })
   activa: boolean;
 
-  // 👤 Director (Un usuario puede dirigir esta escuela)
-  @ManyToOne(() => Usuario, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => Usuario, (usuario) => usuario.escuelasDirector, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'director_id' })
-  director: Usuario;
+  director?: Usuario | null;
 
-  @ManyToOne(() => Usuario, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => Usuario, (usuario) => usuario.escuelasApoyo, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'apoyo_administrativo_id' })
-  apoyoAdministrativo: Usuario;
+  apoyoAdministrativo?: Usuario | null;
 
-  // 👨‍🏫 Formadores (Muchos usuarios a Muchas escuelas)
   @ManyToMany(() => Usuario, (usuario) => usuario.escuelasFormador)
   @JoinTable({
     name: 'escuelas_formadores',
@@ -59,13 +59,15 @@ export class Escuela {
   })
   formadores: Usuario[];
 
-  // 🎓 Estudiantes (Un estudiante pertenece SOLO a esta escuela)
   @OneToMany(() => Estudiante, (estudiante) => estudiante.escuela)
   estudiantes: Estudiante[];
 
-  @CreateDateColumn({ type: 'timestamp' })
-  createdAt: Date;
+  @OneToMany(() => Evento, (evento) => evento.escuela)
+  eventos: Evento[];
 
-  @UpdateDateColumn({ type: 'timestamp' })
-  updatedAt: Date;
+  @CreateDateColumn()
+  creadoEn: Date;
+
+  @UpdateDateColumn({name: 'actualizado_en' })
+  actualizadoEn: Date;
 }

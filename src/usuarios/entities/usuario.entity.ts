@@ -6,44 +6,58 @@ import {
   UpdateDateColumn,
   OneToMany,
   ManyToMany,
+  JoinTable,
+  OneToOne,
+  Index,
 } from 'typeorm';
-import { Escuela } from '../../escuelas/entities/escuela.entity';
+import { PersonaBase } from 'src/common/entity/persona-base.entity';
+import { Rol } from 'src/rol/entities/rol.entity';
+import { Estudiante } from 'src/estudiantes/entities/estudiante.entity';
+import { Escuela } from 'src/escuelas/entities/escuela.entity';
+//import { Escuela } from '../../escuelas/entities/escuela.entity';
 
 @Entity('usuarios')
-export class Usuario {
+export class Usuario extends PersonaBase {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 100 })
-  nombres: string;
+  @Index({ unique: true })
+  @Column({ length: 20, unique: true })
+  declare documento: string; // sobreescribe para marcar unique real de la tabla
 
-  @Column({ type: 'varchar', length: 100 })
-  apellidos: string;
+  @Index({ unique: true })
+  @Column({ length: 150, unique: true })
+  declare email: string; // en usuarios SÍ es obligatorio y único (a diferencia de estudiantes)
 
-  @Column({ type: 'varchar', length: 150, unique: true })
-  email: string;
+  @Column({ select: false }) // nunca se trae por defecto, solo con addSelect explícito
+  password: string;
 
-  @Column({ type: 'varchar', length: 50, default: 'FORMADOR' })
-  rol: string; // 'ADMIN', 'DIRECTOR', 'APOYO_ADMINISTRATIVO', 'FORMADOR'
-
-  @Column({ type: 'boolean', default: true })
+  @Column({ default: true })
   activo: boolean;
 
-  // 🏛️ Escuelas donde este usuario es Director (OneToMany)
+  @ManyToMany(() => Rol, (rol) => rol.usuarios)
+  @JoinTable({
+    name: 'usuarios_roles',
+    joinColumn: { name: 'usuario_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'rol_id', referencedColumnName: 'id' },
+  })
+  roles: Rol[];
+
+  @OneToOne(() => Estudiante, (estudiante) => estudiante.usuario)
+  estudiante?: Estudiante;
+
   @OneToMany(() => Escuela, (escuela) => escuela.director)
-  escuelasDirector: Escuela[];
+escuelasDirector: Escuela[];
 
-  // 📋 Escuelas donde este usuario es Apoyo Administrativo (OneToMany)
-  @OneToMany(() => Escuela, (escuela) => escuela.apoyoAdministrativo)
-  escuelasApoyo: Escuela[];
+@OneToMany(() => Escuela, (escuela) => escuela.apoyoAdministrativo)
+escuelasApoyo: Escuela[];
 
-  // 👨‍🏫 Escuelas donde este usuario imparte clases como Formador (ManyToMany)
-  @ManyToMany(() => Escuela, (escuela) => escuela.formadores)
-  escuelasFormador: Escuela[];
+@ManyToMany(() => Escuela, (escuela) => escuela.formadores)
+escuelasFormador: Escuela[];
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

@@ -34,7 +34,7 @@ import { RolModule } from './rol/rol.module';
         password: config.get<string>('DB_PASSWORD', 'dev_password'),
         database: config.get<string>('DB_NAME', 'postgres'),
         autoLoadEntities: true,
-        synchronize: true,
+        synchronize: false,
         ssl: config.get<string>('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
       }),
     }),

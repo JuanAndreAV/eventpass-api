@@ -7,18 +7,15 @@ export class Rol {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // Identificador único para validaciones en código (ej: 'ADMIN', 'ESTUDIANTE', 'PROFESOR')
   @Column({ unique: true, length: 50 })
-  codigo: string;
+  codigo: string; // ADMIN, DIRECTOR, APOYO, FORMADOR
 
-  // Nombre descriptivo para mostrar en interfaces (ej: 'Administrador del Sistema')
   @Column({ length: 100 })
   nombre: string;
 
-  @Column({ nullable: true, type: 'text' })
-  descripcion: string;
+  @Column({ type: 'text', nullable: true })
+  descripcion?: string;
 
-  // Relación inversa ManyToMany con Usuarios
   @ManyToMany(() => Usuario, (usuario) => usuario.roles)
   usuarios: Usuario[];
 

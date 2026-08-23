@@ -12,6 +12,6 @@ import { Escuela } from 'src/escuelas/entities/escuela.entity';
   ],
   controllers: [EventosController],
   providers: [EventosService],
-  exports: [TypeOrmModule]
+  exports: [TypeOrmModule, EventosService]
 })
 export class EventosModule {}

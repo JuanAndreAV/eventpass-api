@@ -1,34 +1,38 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+// asistentes.controller.ts
+import {
+  Body, Controller, Delete, Get, Param, Post,
+} from '@nestjs/common';
 import { AsistentesService } from './asistentes.service';
-import { CreateAsistenteDto } from './dto/create-asistente.dto';
-import { UpdateAsistenteDto } from './dto/update-asistente.dto';
+import { InscribirAsistenteDto } from './dto/create-asistente.dto';
+import { MarcarIngresoPorQrDto } from './dto/marcar-ingreso.dto';
 
 @Controller('asistentes')
 export class AsistentesController {
   constructor(private readonly asistentesService: AsistentesService) {}
 
   @Post()
-  create(@Body() createAsistenteDto: CreateAsistenteDto) {
-    return this.asistentesService.create(createAsistenteDto);
+  inscribir(@Body() dto: InscribirAsistenteDto) {
+    return this.asistentesService.inscribir(dto);
   }
 
-  @Get()
-  findAll() {
-    return this.asistentesService.findAll();
+  @Get('evento/:eventoId')
+  findByEvento(@Param('eventoId') eventoId: string) {
+    return this.asistentesService.findByEvento(eventoId);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.asistentesService.findOne(+id);
+    return this.asistentesService.findOne(id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAsistenteDto: UpdateAsistenteDto) {
-    return this.asistentesService.update(+id, updateAsistenteDto);
+  // Endpoint clave para el vigilante en la entrada del evento
+  @Post('ingreso')
+  marcarIngreso(@Body() dto: MarcarIngresoPorQrDto) {
+    return this.asistentesService.marcarIngreso(dto.qrToken);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.asistentesService.remove(+id);
+    return this.asistentesService.remove(id);
   }
 }

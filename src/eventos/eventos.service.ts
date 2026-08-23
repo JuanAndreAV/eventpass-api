@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateEventoDto } from './dto/create-evento.dto';
 import { UpdateEventoDto } from './dto/update-evento.dto';
-import { Evento } from './entities/evento.entity';
+import { Evento, TipoEvento } from './entities/evento.entity';
 import { Escuela } from '../escuelas/entities/escuela.entity';
 
 @Injectable()
@@ -82,4 +82,36 @@ export class EventosService {
 
     return escuela;
   }
+
+  
+  async obtenerOCrearEventoAsistenciaEscolar(escuelaId: string): Promise<Evento> {
+  const escuela = await this.resolverEscuela(escuelaId);
+  if (!escuela) throw new NotFoundException(`La escuela con ID ${escuelaId} no existe`);
+
+  const hoyInicio = new Date();
+  hoyInicio.setHours(0, 0, 0, 0);
+
+  let evento = await this.eventoRepository.findOne({
+    where: {
+      escuela: { id: escuelaId },
+      tipo: TipoEvento.ASISTENCIA_ESCOLAR,
+      activo: true,
+    },
+    order: { fechaInicio: 'DESC' },
+  });
+
+  // Si no existe un evento de asistencia vigente, se crea uno (ej. por año escolar)
+  if (!evento) {
+    evento = this.eventoRepository.create({
+      nombre: `Asistencia escolar ${escuela.nombre} - ${new Date().getFullYear()}`,
+      tipo: TipoEvento.ASISTENCIA_ESCOLAR,
+      escuela,
+      fechaInicio: hoyInicio,
+      activo: true,
+    });
+    evento = await this.eventoRepository.save(evento);
+  }
+
+  return evento;
+}
 }

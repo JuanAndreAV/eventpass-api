@@ -1,10 +1,6 @@
 import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryGeneratedColumn,
+  Column, CreateDateColumn, Entity, JoinColumn,
+  ManyToOne, PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Asistente } from '../../asistentes/entities/asistente.entity';
 import { Estudiante } from '../../estudiantes/entities/estudiante.entity';
@@ -23,15 +19,15 @@ export class AccesoLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // 1. Relación con Asistente (si el escaneo pertenece a un registro de evento)
+  // Solo se llena cuando el acceso es a un evento con inscripción (concierto, etc.)
   @ManyToOne(() => Asistente, (asistente) => asistente.accesosLogs, {
     nullable: true,
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'asistente_id' })
-  asistente: Asistente;
+  asistente?: Asistente;
 
-  // 2. Relación directa con Estudiante (para historial global de ingresos)
+  // Se llena cuando el acceso es de un estudiante identificado por NFC/QR/documento
   @ManyToOne(() => Estudiante, (estudiante) => estudiante.accesoLogs, {
     nullable: true,
     onDelete: 'SET NULL',
@@ -39,21 +35,20 @@ export class AccesoLog {
   @JoinColumn({ name: 'estudiante_id' })
   estudiante?: Estudiante;
 
-  // 3. Relación con el Evento
-  @ManyToOne(() => Evento, { onDelete: 'CASCADE' })
+  // Siempre requerido: incluso la asistencia diaria a la escuela es un "evento"
+  @ManyToOne(() => Evento, (evento) => evento.accesosLogs, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
   @JoinColumn({ name: 'evento_id' })
   evento: Evento;
 
-  // 4. Operador que escaneó (Usuario autenticado en la App/Lector)
+  // Vigilante/operador que registró el escaneo
   @ManyToOne(() => Usuario, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'operador_id' })
   operador?: Usuario;
 
-  @Column({
-    type: 'enum',
-    enum: MetodoLectura,
-    default: MetodoLectura.QR,
-  })
+  @Column({ type: 'enum', enum: MetodoLectura, default: MetodoLectura.QR })
   metodoLectura: MetodoLectura;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })

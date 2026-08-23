@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Escuela } from './entities/escuela.entity';
+import { Usuario } from 'src/usuarios/entities/usuario.entity';
 import { CreateEscuelaDto } from './dto/create-escuela.dto';
 import { UpdateEscuelaDto } from './dto/update-escuela.dto';
 
@@ -13,17 +14,35 @@ export class EscuelasService {
   ) {}
 
   async create(dto: CreateEscuelaDto): Promise<Escuela> {
-    const { directorId, apoyoAdministrativoId, formadoresIds, ...rest } = dto;
+  const { directorId, apoyoAdministrativoId, formadoresIds, codigo, ...rest } = dto;
 
-    const escuela = this.escuelaRepo.create({
-      ...rest,
-      director: directorId ? ({ id: directorId } as any) : null,
-      apoyoAdministrativo: apoyoAdministrativoId ? ({ id: apoyoAdministrativoId } as any) : null,
-      formadores: formadoresIds ? formadoresIds.map((id) => ({ id } as any)) : [],
-    });
+  const escuela = this.escuelaRepo.create({
+    ...rest,
+    codigo: codigo ?? (await this.generarCodigoUnico(rest.nombre)),
+    director: directorId ? ({ id: directorId } as Usuario) : null,
+    apoyoAdministrativo: apoyoAdministrativoId ? ({ id: apoyoAdministrativoId } as Usuario) : null,
+    formadores: formadoresIds ? formadoresIds.map((id) => ({ id } as Usuario)) : [],
+  });
 
-    return await this.escuelaRepo.save(escuela);
+  return await this.escuelaRepo.save(escuela);
+}
+
+private async generarCodigoUnico(nombre: string): Promise<string> {
+  const base = nombre
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita tildes
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase()
+    .slice(0, 6);
+
+  let candidato = base;
+  let sufijo = 1;
+
+  while (await this.escuelaRepo.exists({ where: { codigo: candidato } })) {
+    candidato = `${base}${sufijo++}`;
   }
+
+  return candidato;
+}
 
   async findAll(): Promise<Escuela[]> {
     return await this.escuelaRepo.find({

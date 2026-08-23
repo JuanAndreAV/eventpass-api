@@ -1,34 +1,25 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+// acceso-log.controller.ts
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { AccesoLogService } from './acceso-log.service';
-import { CreateAccesoLogDto } from './dto/create-acceso-log.dto';
-import { UpdateAccesoLogDto } from './dto/update-acceso-log.dto';
+import { RegistrarAccesoDto } from './dto/registrar-acceso.dto';
 
-@Controller('acceso-log')
+@Controller('accesos-log')
 export class AccesoLogController {
   constructor(private readonly accesoLogService: AccesoLogService) {}
 
+  // Endpoint principal usado por la app/PWA del vigilante
   @Post()
-  create(@Body() createAccesoLogDto: CreateAccesoLogDto) {
-    return this.accesoLogService.create(createAccesoLogDto);
+  registrarAcceso(@Body() dto: RegistrarAccesoDto) {
+    return this.accesoLogService.registrarAcceso(dto);
   }
 
-  @Get()
-  findAll() {
-    return this.accesoLogService.findAll();
+  @Get('evento/:eventoId')
+  findByEvento(@Param('eventoId') eventoId: string) {
+    return this.accesoLogService.findByEvento(eventoId);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.accesoLogService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAccesoLogDto: UpdateAccesoLogDto) {
-    return this.accesoLogService.update(+id, updateAccesoLogDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.accesoLogService.remove(+id);
+  @Get('estudiante/:estudianteId')
+  findByEstudiante(@Param('estudianteId') estudianteId: string) {
+    return this.accesoLogService.findByEstudiante(estudianteId);
   }
 }

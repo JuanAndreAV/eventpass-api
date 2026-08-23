@@ -1,17 +1,11 @@
+// asistentes/entities/asistente.entity.ts
 import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  OneToMany,
-  Index,
-  CreateDateColumn,
-  UpdateDateColumn,
+  Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn,
+  OneToMany, Index, CreateDateColumn, UpdateDateColumn,
 } from 'typeorm';
 import { Evento } from '../../eventos/entities/evento.entity';
 import { Estudiante } from '../../estudiantes/entities/estudiante.entity';
-import { AccesoLog } from '../../acceso-log/entities/acceso-log.entity';
+import { AccesoLog } from '../../acceso-log/entities/acceso-log.entity'; // 👈 nuevo import
 
 export enum TipoAsistente {
   ESTUDIANTE = 'ESTUDIANTE',
@@ -20,7 +14,7 @@ export enum TipoAsistente {
 }
 
 @Entity('asistentes')
-@Index(['documento', 'evento'], { unique: true }) // Garantiza 1 sola inscripción por cédula por evento
+@Index(['documento', 'evento'], { unique: true })
 export class Asistente {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -49,7 +43,7 @@ export class Asistente {
   @JoinColumn({ name: 'estudiante_id' })
   estudiante?: Estudiante;
 
-  @Column({ unique: true, nullable: true })
+  @Column({ type: 'text', unique: true, nullable: true }) // ajustado a TEXT por la migración #6
   qrToken: string;
 
   @Column({ default: false })
@@ -58,7 +52,7 @@ export class Asistente {
   @Column({ type: 'timestamp', nullable: true })
   fechaIngreso: Date;
 
-  @OneToMany(() => AccesoLog, (log) => log.asistente)
+  @OneToMany(() => AccesoLog, (log) => log.asistente) // 👈 la relación que faltaba
   accesosLogs: AccesoLog[];
 
   @CreateDateColumn()

@@ -1,65 +1,50 @@
 import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsEmail,
-  IsUUID,
-  MaxLength,
-  IsUrl,
+  IsString, IsNotEmpty, IsOptional, IsEmail, IsUUID,
+  MaxLength, IsUrl, IsEnum, IsDateString,
 } from 'class-validator';
+import { TipoDocumento } from '../../common/entity/persona-base.entity';
 
 export class CreateEstudianteDto {
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(20)
+  @IsEnum(TipoDocumento)
+  @IsOptional()
+  tipoDocumento?: TipoDocumento;
+
+  @IsString() @IsNotEmpty() @MaxLength(20)
   documento: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(100)
+  @IsString() @IsNotEmpty() @MaxLength(100)
   nombres: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(100)
+  @IsString() @IsNotEmpty() @MaxLength(100)
   apellidos: string;
 
-  @IsEmail()
-  @IsOptional()
-  @MaxLength(150)
+  @IsEmail() @IsOptional() @MaxLength(150)
   email?: string;
 
-  @IsString()
-  @IsOptional()
-  @MaxLength(20)
+  @IsString() @IsOptional() @MaxLength(20)
   telefono?: string;
 
-  @IsString()
-  @IsOptional()
-  @MaxLength(100)
-  instrumento?: string; // e.g., 'Violín', 'Viola', 'Piano'
+  @IsDateString() @IsOptional()
+  fechaNacimiento?: string;
 
-  @IsUrl()
-  @IsOptional()
+  @IsString() @IsOptional() @MaxLength(255)
+  direccion?: string;
+
+  @IsString() @IsOptional() @MaxLength(100)
+  instrumento?: string;
+
+  @IsUrl() @IsOptional()
   fotoUrl?: string;
 
-  // 💳 Tarjeta NFC / Carnet
-  @IsString()
-  @IsOptional()
-  @MaxLength(100)
+  @IsString() @IsOptional() @MaxLength(100)
   nfcUid?: string;
 
-  // 📱 Token QR estático o maestro
-  @IsString()
-  @IsOptional()
-  @MaxLength(255)
+  @IsString() @IsOptional() @MaxLength(255)
   qrTokenMaster?: string;
 
-  @IsUUID()
-  @IsOptional()
+  @IsUUID() @IsOptional()
   usuarioId?: string;
 
-  @IsUUID()
-  @IsNotEmpty()
+  @IsUUID() @IsNotEmpty()
   escuelaId: string;
 }
