@@ -51,9 +51,9 @@ export class AccesoLog {
   @Column({ type: 'enum', enum: MetodoLectura, default: MetodoLectura.QR })
   metodoLectura: MetodoLectura;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  fechaEscaneo: Date;
+  @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+fechaEscaneo: Date;
 
-  @CreateDateColumn({ name: 'registrado_en_servidor' })
-  registradoEnServidor: Date;
+@CreateDateColumn({ name: 'registrado_en_servidor', type: 'timestamptz' })
+registradoEnServidor: Date;
 }

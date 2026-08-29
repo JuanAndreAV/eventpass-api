@@ -17,6 +17,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
 import { AuthModule } from './auth/auth.module';
 import { Usuario } from './usuarios/entities/usuario.entity';
 import { RolModule } from './rol/rol.module';
+import { ValidacionIdentidadModule } from './validacion-identidad/validacion-identidad.module';
 
 @Module({
   imports: [
@@ -48,7 +49,8 @@ import { RolModule } from './rol/rol.module';
     EventosModule,
     UsuariosModule,
     AuthModule,
-    RolModule
+    RolModule,
+    ValidacionIdentidadModule
   ],
   controllers: [AppController],
   providers: [AppService],

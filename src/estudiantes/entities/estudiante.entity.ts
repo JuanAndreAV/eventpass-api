@@ -60,9 +60,9 @@ export class Estudiante extends PersonaBase {
   @OneToMany(() => AccesoLog, (log) => log.estudiante)
   accesoLogs: AccesoLog[];
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at',  type: 'timestamptz'  })
   creadoEn: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz'  })
   actualizadoEn: Date;
 }

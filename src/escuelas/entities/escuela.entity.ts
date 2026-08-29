@@ -65,9 +65,9 @@ export class Escuela {
   @OneToMany(() => Evento, (evento) => evento.escuela)
   eventos: Evento[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   creadoEn: Date;
 
-  @UpdateDateColumn({name: 'actualizado_en' })
+  @UpdateDateColumn({name: 'actualizado_en', type: 'timestamptz'  })
   actualizadoEn: Date;
 }

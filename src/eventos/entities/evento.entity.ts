@@ -54,6 +54,6 @@ export class Evento {
   @OneToMany(() => AccesoLog, (log) => log.evento)
   accesosLogs: AccesoLog[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   creadoEn: Date;
 }
