@@ -42,7 +42,7 @@ export class Evento {
   @Column({ type: 'int', nullable: true })
   aforoMaximo?: number;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'timestamptz' })
   fechaInicio: Date;
 
   @Column({ default: true })

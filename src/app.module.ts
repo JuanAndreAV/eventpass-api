@@ -36,6 +36,9 @@ import { RolModule } from './rol/rol.module';
         autoLoadEntities: true,
         synchronize: false,
         ssl: config.get<string>('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
+        extra: {
+    options: '-c timezone=-05:00', 
+  },
       }),
     }),
     AccesoLogModule,

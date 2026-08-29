@@ -12,6 +12,10 @@ import {
 import { EscuelasService } from './escuelas.service';
 import { CreateEscuelaDto } from './dto/create-escuela.dto';
 import { UpdateEscuelaDto } from './dto/update-escuela.dto';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Role } from 'src/auth/roles-enum/role.enum';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
 @Controller('escuelas')
 export class EscuelasController {
@@ -22,6 +26,7 @@ export class EscuelasController {
     return this.escuelasService.create(createEscuelaDto);
   }
 
+  @UseGuards(JwtAuthGuard,RolesGuard)
   @Get()
   findAll() {
     return this.escuelasService.findAll();
