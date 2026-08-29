@@ -2,9 +2,12 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
+import * as pg from 'pg';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  pg.types.setTypeParser(1114, (stringValue: string) => stringValue);
   app.use(cookieParser())
   app.enableCors({
     origin: [

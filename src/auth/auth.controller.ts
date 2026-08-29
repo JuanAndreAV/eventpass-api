@@ -11,13 +11,14 @@ export class AuthController {
   @Post('login')
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const { token, usuario } = await this.authService.login(dto);
-
-    res.cookie('jwt', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 1000 * 60 * 60 * 8,
-    });
+const isProduction = process.env.NODE_ENV === 'production';
+   res.cookie('jwt', token, {
+  httpOnly: true,
+  secure: isProduction,                             // true en Producción (requiere HTTPS)
+  sameSite: isProduction ? 'none' : 'lax',          // 'none' permite peticiones cross-site en producción
+  maxAge: 1000 * 60 * 60 * 8,                       // 8 horas
+  path: '/',                                        // Asegura que la cookie esté disponible en todas las rutas de la API
+});
 
     return {
       mensaje: 'Inicio de sesión exitoso',
