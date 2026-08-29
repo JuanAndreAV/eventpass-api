@@ -21,7 +21,7 @@
     "typeorm": "NODE_OPTIONS=--no-experimental-strip-types ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d src/data-source.ts",
     "migration:run": "npm run typeorm migration:run",
     "migration:revert": "npm run typeorm migration:revert",
-    "migration:show": "npm run typeorm migration:show",
+    "migration:show": "npm run typeorm migration:show"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
