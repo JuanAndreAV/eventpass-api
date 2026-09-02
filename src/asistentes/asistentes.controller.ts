@@ -1,10 +1,11 @@
 // asistentes.controller.ts
 import {
   Body, Controller, Delete, Get, Param, Post,
+  Query,
 } from '@nestjs/common';
 import { AsistentesService } from './asistentes.service';
 import { InscribirAsistenteDto } from './dto/create-asistente.dto';
-import { MarcarIngresoPorQrDto } from './dto/marcar-ingreso.dto';
+import { MarcarIngresoDto } from './dto/marcar-ingreso.dto';
 
 @Controller('asistentes')
 export class AsistentesController {
@@ -20,6 +21,15 @@ export class AsistentesController {
     return this.asistentesService.findByEvento(eventoId);
   }
 
+  
+@Get('verificar-documento/:documento')
+verificarDocumento(
+  @Param('documento') documento: string,
+  @Query('eventoId') eventoId?: string,
+) {
+  return this.asistentesService.verificarDocumento(documento, eventoId);
+}
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.asistentesService.findOne(id);
@@ -27,8 +37,8 @@ export class AsistentesController {
 
   // Endpoint clave para el vigilante en la entrada del evento
   @Post('ingreso')
-  marcarIngreso(@Body() dto: MarcarIngresoPorQrDto) {
-    return this.asistentesService.marcarIngreso(dto.qrToken);
+  marcarIngreso(@Body() dto: MarcarIngresoDto) {
+    return this.asistentesService.marcarIngreso(dto);
   }
 
   @Delete(':id')

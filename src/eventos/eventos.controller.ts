@@ -16,6 +16,11 @@ export class EventosController {
   async findAll() {
     return await this.eventosService.findAll();
   }
+  // eventos/eventos.controller.ts — nuevo endpoint
+  @Get('activos')
+  async findActivos() {
+    return await this.eventosService.findActivos();
+  }
 
   @Get(':id')
   async findOne(@Param('id') id: string) {

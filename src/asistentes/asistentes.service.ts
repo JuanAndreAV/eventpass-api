@@ -10,6 +10,9 @@ import { Asistente, TipoAsistente } from './entities/asistente.entity';
 import { Evento } from '../eventos/entities/evento.entity';
 import { Estudiante } from '../estudiantes/entities/estudiante.entity';
 import { InscribirAsistenteDto } from './dto/create-asistente.dto';
+import { VerificarDocumentoResponseDto } from './dto/verificar-documento.dto';
+import * as QRCode from 'qrcode';
+import { MarcarIngresoDto } from './dto/marcar-ingreso.dto';
 
 @Injectable()
 export class AsistentesService {
@@ -22,11 +25,10 @@ export class AsistentesService {
     private readonly estudianteRepo: Repository<Estudiante>,
   ) {}
 
-  async inscribir(dto: InscribirAsistenteDto): Promise<Asistente> {
+  async inscribir(dto: InscribirAsistenteDto): Promise<{ asistente: Asistente; qrImagen: string }> {
     const evento = await this.eventoRepo.findOneBy({ id: dto.eventoId });
     if (!evento) throw new NotFoundException(`El evento con ID ${dto.eventoId} no existe`);
 
-    // Validar cupo si el evento tiene aforo máximo definido
     if (evento.aforoMaximo) {
       const inscritos = await this.asistenteRepo.count({ where: { evento: { id: evento.id } } });
       if (inscritos >= evento.aforoMaximo) {
@@ -38,6 +40,7 @@ export class AsistentesService {
     let documento = dto.documento;
     let nombreCompleto = dto.nombreCompleto;
     let email = dto.email;
+    let telefono = dto.telefono;
 
     if (dto.tipo === TipoAsistente.ESTUDIANTE) {
       if (!dto.estudianteId) {
@@ -47,10 +50,10 @@ export class AsistentesService {
       if (!encontrado) throw new NotFoundException(`El estudiante con ID ${dto.estudianteId} no existe`);
 
       estudiante = encontrado;
-      // Se copian del estudiante para no depender de que el cliente los reenvíe
       documento = encontrado.documento;
       nombreCompleto = `${encontrado.nombres} ${encontrado.apellidos}`;
       email = encontrado.email;
+      telefono = encontrado.telefono;
     } else if (!documento || !nombreCompleto || !email) {
       throw new BadRequestException(
         'documento, nombreCompleto y email son requeridos para asistentes RED o EXTERNO.',
@@ -64,19 +67,72 @@ export class AsistentesService {
       documento,
       nombreCompleto,
       email,
-      telefono: dto.telefono,
-      qrToken: randomUUID(),
+      telefono,
+      qrToken: randomUUID(), // 👈 simple, sin firma
       ingresado: false,
     });
 
+    let guardado: Asistente;
     try {
-      return await this.asistenteRepo.save(nuevoAsistente);
-    } catch (error) {
-      if (error instanceof Object && 'code' in error && error.code === '23505') {
+      guardado = await this.asistenteRepo.save(nuevoAsistente);
+    } catch (error: unknown) {
+      const anyErr = error as { code?: string };
+      if (anyErr.code === '23505') {
         throw new ConflictException('Este documento ya está inscrito en este evento.');
       }
       throw error;
     }
+
+    const qrImagen = await QRCode.toDataURL(guardado.qrToken, { errorCorrectionLevel: 'M', width: 300 });
+
+    return { asistente: guardado, qrImagen };
+  }
+
+  async verificarDocumento(documento: string, eventoId?: string): Promise<VerificarDocumentoResponseDto> {
+    if (eventoId) {
+      const yaInscrito = await this.asistenteRepo.findOne({
+        where: { documento, evento: { id: eventoId } },
+      });
+      if (yaInscrito) {
+        return {
+          encontrado: true,
+          yaInscrito: true,
+          asistenteId: yaInscrito.id,
+          tipo: yaInscrito.tipo,
+          nombreCompleto: yaInscrito.nombreCompleto,
+          email: yaInscrito.email,
+          telefono: yaInscrito.telefono,
+        };
+      }
+    }
+
+    const estudiante = await this.estudianteRepo.findOneBy({ documento });
+    if (estudiante) {
+      return {
+        encontrado: true,
+        tipo: TipoAsistente.ESTUDIANTE,
+        estudianteId: estudiante.id,
+        nombreCompleto: `${estudiante.nombres} ${estudiante.apellidos}`,
+        email: estudiante.email,
+        telefono: estudiante.telefono,
+      };
+    }
+
+    const asistentePrevio = await this.asistenteRepo.findOne({
+      where: { documento },
+      order: { fechaInscripcion: 'DESC' },
+    });
+    if (asistentePrevio) {
+      return {
+        encontrado: true,
+        tipo: asistentePrevio.tipo,
+        nombreCompleto: asistentePrevio.nombreCompleto,
+        email: asistentePrevio.email,
+        telefono: asistentePrevio.telefono,
+      };
+    }
+
+    return { encontrado: false };
   }
 
   findByEvento(eventoId: string): Promise<Asistente[]> {
@@ -105,20 +161,36 @@ export class AsistentesService {
     return asistente;
   }
 
-  /** Marca el ingreso físico al evento (usado por el vigilante al escanear el QR de inscripción) */
-  async marcarIngreso(qrToken: string): Promise<Asistente> {
-    const asistente = await this.findByQrToken(qrToken);
+  /** Idempotente: si ya estaba ingresado, no falla, solo devuelve el estado actual. */
+ // asistentes.service.ts
+async marcarIngreso(dto: MarcarIngresoDto): Promise<Asistente> {
+  const asistente = dto.qrToken
+    ? await this.findByQrToken(dto.qrToken)
+    : await this.findByDocumentoYEvento(dto.documento!, dto.eventoId!);
 
-    if (asistente.ingresado) {
-      throw new ConflictException(
-        `Este asistente ya registró su ingreso el ${asistente.fechaIngreso?.toLocaleString()}.`,
-      );
-    }
+  return this.confirmarIngreso(asistente);
+}
 
-    asistente.ingresado = true;
-    asistente.fechaIngreso = new Date();
-    return this.asistenteRepo.save(asistente);
+async findByDocumentoYEvento(documento: string, eventoId: string): Promise<Asistente> {
+  const asistente = await this.asistenteRepo.findOne({
+    where: { documento, evento: { id: eventoId } },
+    relations: { estudiante: true, evento: true },
+  });
+  if (!asistente) {
+    throw new NotFoundException('No se encontró una inscripción con ese documento para este evento.');
   }
+  return asistente;
+}
+
+// Lógica compartida entre ambos caminos — idempotente, igual que antes
+private async confirmarIngreso(asistente: Asistente): Promise<Asistente> {
+  if (asistente.ingresado) {
+    return asistente; // ya había entrado, no es error, solo se informa el estado actual
+  }
+  asistente.ingresado = true;
+  asistente.fechaIngreso = new Date();
+  return this.asistenteRepo.save(asistente);
+}
 
   async remove(id: string): Promise<{ mensaje: string }> {
     const asistente = await this.findOne(id);

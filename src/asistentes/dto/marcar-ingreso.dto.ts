@@ -1,7 +1,16 @@
 // dto/marcar-ingreso.dto.ts
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, ValidateIf, IsUUID, IsOptional } from 'class-validator';
 
-export class MarcarIngresoPorQrDto {
-  @IsString() @IsNotEmpty()
-  qrToken: string;
+export class MarcarIngresoDto {
+  @IsString()
+  @IsOptional()
+  qrToken?: string;
+
+  @IsString()
+  @ValidateIf((dto) => !dto.qrToken) // solo se exige si NO viene qrToken
+  documento?: string;
+
+  @IsUUID()
+  @ValidateIf((dto) => !dto.qrToken)
+  eventoId?: string;
 }

@@ -114,4 +114,16 @@ export class EventosService {
 
   return evento;
 }
+//para ver eventos activos teniendo en cuenta la fecha de inicio y el estado activo
+async findActivos(): Promise<Evento[]> {
+  const limiteHaceUnaHora = new Date(Date.now() - 60 * 60 * 1000); // Fecha/Hora actual menos 1 hora (en ms)
+
+  return this.eventoRepository
+    .createQueryBuilder('evento')
+    .where('evento.activo = :activo', { activo: true })
+    .andWhere('evento.fechaInicio >= :limiteHaceUnaHora', { limiteHaceUnaHora })
+    .andWhere('evento.tipo != :tipo', { tipo: TipoEvento.ASISTENCIA_ESCOLAR })
+    .orderBy('evento.fechaInicio', 'ASC')
+    .getMany();
+}
 }
