@@ -94,11 +94,13 @@ export class AsistentesService {
         where: { documento, evento: { id: eventoId } },
       });
       if (yaInscrito) {
+        const qrImagen = await QRCode.toDataURL(yaInscrito.qrToken, { errorCorrectionLevel: 'M', width: 300 });
         return {
           encontrado: true,
           yaInscrito: true,
           asistenteId: yaInscrito.id,
           tipo: yaInscrito.tipo,
+          qrImagen,
           nombreCompleto: yaInscrito.nombreCompleto,
           email: yaInscrito.email,
           telefono: yaInscrito.telefono,

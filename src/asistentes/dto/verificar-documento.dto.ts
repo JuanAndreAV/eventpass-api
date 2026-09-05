@@ -5,6 +5,7 @@ export class VerificarDocumentoResponseDto {
   yaInscrito?: boolean;
   asistenteId?: string;
   tipo?: TipoAsistente;
+  qrImagen?: string;
   estudianteId?: string;
   nombreCompleto?: string;
   email?: string;
