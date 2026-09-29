@@ -18,6 +18,7 @@ import { AuthModule } from './auth/auth.module';
 import { Usuario } from './usuarios/entities/usuario.entity';
 import { RolModule } from './rol/rol.module';
 import { ValidacionIdentidadModule } from './validacion-identidad/validacion-identidad.module';
+import { TransportesModule } from './transportes/transportes.module';
 
 @Module({
   imports: [
@@ -50,7 +51,8 @@ import { ValidacionIdentidadModule } from './validacion-identidad/validacion-ide
     UsuariosModule,
     AuthModule,
     RolModule,
-    ValidacionIdentidadModule
+    ValidacionIdentidadModule,
+    TransportesModule
   ],
   controllers: [AppController],
   providers: [AppService],

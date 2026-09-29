@@ -1,98 +1,141 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# EventPass API (Backend)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API REST de **EventPass**, la plataforma de la **Red de Músicas de Medellín (RMM)** para control de acceso a eventos (QR / NFC / cédula) y gestión de transporte de agrupaciones.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Stack
 
-## Description
+| Capa | Tecnología |
+| --- | --- |
+| Framework | NestJS 11 (TypeScript) |
+| ORM / BD | TypeORM + PostgreSQL (Supabase en la nube; Docker Postgres 16 opcional en local) |
+| Auth | JWT en cookie HttpOnly (`jwt`), Passport, bcrypt |
+| Validación | `class-validator` + `ValidationPipe` global |
+| Documentos | `pdfmake` 0.2.x (PDF) y `exceljs` (Excel) |
+| QR | `qrcode` |
+| Despliegue | Firebase App Hosting (Cloud Run) — `apphosting.yaml` |
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Prefijo global: `/api/v1/eventpass`. CORS permite `localhost:4200`, `eventos-redmus.web.app` y `scanner-redmus.web.app` (con credenciales).
 
-## Project setup
+## Arquitectura
 
-```bash
-$ npm install
+Monolito modular NestJS: un módulo por dominio, cada uno con `controller → service → entity/dto`. El esquema **no** se sincroniza automáticamente (`synchronize: false`): todo cambio va por **migraciones** en `src/migrations/`.
+
+```
+src/
+├── auth/               Login/logout/perfil, JwtAuthGuard, RolesGuard, decorador @Roles
+├── usuarios/  rol/     Cuentas del personal y roles (M:N)
+├── escuelas/           Escuelas de la Red (director, apoyo administrativo, formadores)
+├── estudiantes/        Estudiantes (foto, NFC UID, QR maestro, escuela)
+├── eventos/            Eventos (tipo, aforo, fecha, escuela opcional)
+├── asistentes/         Inscritos a un evento + token QR + ingreso
+├── acceso-log/         Bitácora de lecturas de acceso (QR, cédula PDF417, NFC, manual)
+├── validacion-identidad/ Registro de validaciones de identidad de estudiantes
+├── transportes/        Módulo de transporte (ver abajo y transportes/README.md)
+├── common/             Entidad base de persona (documento, nombres, contacto)
+├── migrations/         Historial del esquema + seeds de datos reales
+└── data-source.ts      Configuración para el CLI de TypeORM
 ```
 
-## Compile and run the project
+## Base de datos
 
-```bash
-# development
-$ npm run start
+**Núcleo (control de acceso)**
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+```
+roles ⇄ usuarios ── escuelas (director, apoyo_administrativo, formadores M:N)
+                        │
+usuarios 1─1 estudiantes ─N─1 escuelas
+eventos ─N─1 escuelas (opcional)
+eventos 1─N asistentes ─N─1 estudiantes (opcional)
+accesos_log ─→ evento (obligatorio), asistente / estudiante / operador (opcionales)
+validaciones_identidad ─→ estudiante, operador
 ```
 
-## Run tests
+Enums: `TipoDocumento` (CC, TI, CE, RC, PASAPORTE), `TipoEvento`, `TipoAsistente` (ESTUDIANTE, RED, EXTERNO), `MetodoLectura` (QR, CEDULA_PDF417, NFC, MANUAL), `MetodoIdentificacion` (NFC, QR, DOCUMENTO).
 
-```bash
-# unit tests
-$ npm run test
+**Transportes** (prefijo `transporte_`)
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+```
+zonas 1─N rutas          zonas × tipos_vehiculo ─→ tarifas (valor, vigente_desde)
+rutas ⇄ escuelas         (tabla puente transporte_escuela_ruta)
+agrupaciones ─→ ruta (opcional, gana sobre la de la escuela)
+ciclos (convocatorias) ⇄ agrupaciones convocadas
+ciclos 1─N solicitudes ─→ estudiante, escuela, agrupación, instrumento, ruta ida / ruta regreso
+instrumentos (puestos adicionales por instrumento)
 ```
 
-## Deployment
+Los catálogos (zonas, tarifas, vehículos, instrumentos, rutas, escuelas→ruta) vienen precargados desde el Google Sheet oficial de la RMM (migración `1788100000001-SeedDatosRealesTransportes`).
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## Módulos funcionales
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 1. Control de acceso a eventos
+- CRUD de eventos, escuelas, estudiantes, asistentes.
+- Inscripción de asistentes con **token QR** único; verificación por documento.
+- **Ingreso** (`POST /asistentes/ingreso`) y bitácora en `accesos_log`.
+- Identificación de estudiante por NFC / QR / documento (`POST /estudiantes/identificar`).
+- Diseñado para operación **offline-first** desde el front (el escáner sincroniza lotes de ingresos pendientes).
+
+### 2. Transportes
+Digitaliza el proceso semanal (antes Google Forms + Excel):
+
+1. **ADMIN** abre una *convocatoria* (ciclo): fecha, destino, agrupaciones, horas, cierre.
+2. El **participante** (sin cuenta; se identifica por documento) llena el formulario público.
+3. La **SECRETARIA** de su escuela aprueba o rechaza (solo ve su escuela).
+4. **Motor de cálculo** (`CalculoService`): agrupa solicitudes aprobadas por ruta → puestos (máx. de ida/regreso + recargo por instrumento) → tipo de vehículo por rango → costo por zona × vehículo.
+5. Exporta **PDF de costo, PDF de rutas y libro Excel** para la transportadora.
+
+Reglas clave: toda ruta hace ida y regreso con el mismo vehículo; el TOTAL excluye traslados adicionales; todo lo numérico (tarifas, rangos, recargos) es configurable por catálogo. **La fuente autoritativa de la lógica es el Excel de la RMM.**
+
+Fases: 1 catálogos + solicitud + aprobación ✅ · 2 cálculo + exportación ✅ · 3 vehículo/conductor/guía, control de abordaje, novedades ⏳ · 4 notificaciones por correo (WhatsApp después) ⏳.
+
+## Autenticación y roles
+
+Login → JWT firmado en cookie HttpOnly. Guards: `JwtAuthGuard` + `RolesGuard` con `@Roles(...)`.
+
+| Rol | Alcance |
+| --- | --- |
+| `ADMIN` | Todo, incluido configuración de transportes |
+| `SECRETARIA` | Aprueba/rechaza solicitudes de **su** escuela (`escuelas.apoyo_administrativo_id`) |
+| `TRANSPORTADORA` | Consulta ciclos, rutas, cálculo y descarga documentos |
+| `formador` / director / apoyo | Módulo de eventos y escuelas |
+
+Endpoints públicos: login, eventos activos, inscripción, formulario y consulta de solicitud de transporte, ciclos abiertos.
+
+> ⚠️ Varios controladores de `usuarios`, `roles` y `estudiantes` tienen los guards comentados como `TODO`; deben activarse antes de producción.
+
+## Endpoints principales
+
+| Recurso | Base |
+| --- | --- |
+| Auth | `/auth` (`login`, `logout`, `profile`) |
+| Usuarios / Roles / Escuelas / Estudiantes / Eventos | `/usuarios`, `/roles`, `/escuelas`, `/estudiantes`, `/eventos` |
+| Asistentes / Accesos | `/asistentes`, `/accesos-log`, `/validacion-identidad` |
+| Transportes | `/transportes/{catalogos,rutas,ciclos,solicitudes}` |
+| Documentos | `/transportes/ciclos/:id/documentos/{costo.pdf,rutas.pdf,libro.xlsx}` |
+
+## Puesta en marcha
+
+Requisitos: Node 20+, acceso a una BD PostgreSQL.
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm install
+cp .env.example .env      # completar DB_*, JWT_SECRET, PORT
+npm run migration:run     # aplica migraciones y seeds
+npm run start:dev         # http://localhost:3000/api/v1/eventpass (PORT por defecto: 8080)
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Variables: `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL`, `JWT_SECRET` (obligatoria, el arranque falla sin ella), `PORT`, `TZ=UTC`.
 
-## Resources
+Notas:
+- **Supabase**: si tu red no tiene IPv6, usa el *Transaction pooler* (puerto 6543, usuario `postgres.<project-ref>`), no la conexión directa.
+- **Windows**: `npm run typeorm` usa sintaxis bash; en PowerShell define `$env:NODE_OPTIONS="--no-experimental-strip-types"` y ejecuta `npx ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d src/data-source.ts migration:run`.
+- BD local opcional: `docker-compose.yaml` (Postgres 16).
 
-Check out a few resources that may come in handy when working with NestJS:
+## Pruebas
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```bash
+npm test                                    # unitarias (Jest)
+npx ts-node -r tsconfig-paths/register scripts/probar-calculo.ts      # motor de cálculo (integración, se limpia sola)
+npx ts-node -r tsconfig-paths/register scripts/probar-documentos.ts <carpeta>   # exportación PDF/Excel
+```
 
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Más detalle del módulo de transporte (reglas, modelo, decisiones): [src/transportes/README.md](src/transportes/README.md).
