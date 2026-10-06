@@ -181,7 +181,7 @@ async findByDocumentoYEvento(documento: string, eventoId: string): Promise<Asist
   if (!asistente) {
     throw new NotFoundException('No se encontró una inscripción con ese documento para este evento.');
   }
-  return asistente;
+  return asistente
 }
 
 // Lógica compartida entre ambos caminos — idempotente, igual que antes
