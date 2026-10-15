@@ -30,11 +30,11 @@ export class Asistente {
   @Column()
   nombreCompleto: string;
 
-  @Column()
-  email: string;
+  @Column({ type: 'varchar', nullable: true })
+email: string | null;
 
-  @Column({ nullable: true })
-  telefono: string;
+@Column({ type: 'varchar', nullable: true })
+telefono: string | null;
 
   @Column({ type: 'enum', enum: TipoAsistente, default: TipoAsistente.EXTERNO })
   tipo: TipoAsistente;
@@ -49,15 +49,15 @@ export class Asistente {
   @Column({ default: false })
   ingresado: boolean;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   fechaIngreso: Date;
 
   @OneToMany(() => AccesoLog, (log) => log.asistente) // 👈 la relación que faltaba
   accesosLogs: AccesoLog[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   fechaInscripcion: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   actualizadoEn: Date;
 }

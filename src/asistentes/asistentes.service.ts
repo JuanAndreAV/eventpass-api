@@ -102,8 +102,8 @@ export class AsistentesService {
           tipo: yaInscrito.tipo,
           qrImagen,
           nombreCompleto: yaInscrito.nombreCompleto,
-          email: yaInscrito.email,
-          telefono: yaInscrito.telefono,
+          //email: yaInscrito.email,
+          //telefono: yaInscrito.telefono,
         };
       }
     }
@@ -129,8 +129,8 @@ export class AsistentesService {
         encontrado: true,
         tipo: asistentePrevio.tipo,
         nombreCompleto: asistentePrevio.nombreCompleto,
-        email: asistentePrevio.email,
-        telefono: asistentePrevio.telefono,
+        //email: asistentePrevio.email,
+        //telefono: asistentePrevio.telefono,
       };
     }
 
