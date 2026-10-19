@@ -103,7 +103,7 @@ export class SolicitudesService {
   // Consulta del solicitante: sus propias solicitudes, identificándose con el documento.
   async findByDocumento(documento: string): Promise<Solicitud[]> {
     const estudiante = await this.estudiantePorDocumento(documento);
-    return this.solicitudRepo.find({
+    const solicitudes = await this.solicitudRepo.find({
       where: { estudiante: { id: estudiante.id } },
       relations: {
         ciclo: true, escuela: true, agrupacion: true, instrumento: true,
@@ -111,13 +111,14 @@ export class SolicitudesService {
       },
       order: { creadoEn: 'DESC' },
     });
+    return solicitudes.map((s) => this.sinDatosSensibles(s));
   }
 
   // El solicitante no tiene cuenta: su "perfil" es la última solicitud que envió.
   // El formulario la usa para prellenarse cuando teclea su documento.
   async ultimaPorDocumento(documento: string): Promise<Solicitud | null> {
     const estudiante = await this.estudiantePorDocumento(documento);
-    return this.solicitudRepo.findOne({
+    const solicitud = await this.solicitudRepo.findOne({
       where: { estudiante: { id: estudiante.id } },
       relations: {
         ciclo: true, escuela: true, agrupacion: true, instrumento: true,
@@ -125,6 +126,22 @@ export class SolicitudesService {
       },
       order: { creadoEn: 'DESC' },
     });
+    return solicitud ? this.sinDatosSensibles(solicitud) : null;
+  }
+
+  // El documento no es un secreto (lo puede saber un compañero, un hermano o la
+  // escuela), así que `findByDocumento`/`ultimaPorDocumento` son de facto
+  // públicas: cualquiera que lo teclee puede consultarlas sin iniciar sesión.
+  // Por eso no deben devolver datos de contacto ni notas libres de alguien que
+  // solo "adivinó" el documento ajeno; el formulario solo necesita las
+  // selecciones (ciclo, agrupación, escuela, instrumento) para prellenarse.
+  private sinDatosSensibles(solicitud: Solicitud): Solicitud {
+    return {
+      ...solicitud,
+      telefonoContacto: undefined,
+      telefonoAcudiente: undefined,
+      observacion: undefined,
+    };
   }
 
   async findOne(id: string): Promise<Solicitud> {
@@ -153,6 +170,13 @@ export class SolicitudesService {
     if (administrativo) {
       await this.verificarPuedeRevisar(solicitud, usuario!);
     } else {
+      // Sin sesión de administrativo, el único "login" posible es repetir el
+      // documento del estudiante: si no coincide, el id no le pertenece a quien
+      // llama (puede ser alguien con sesión de otro rol, o nadie). El id de la
+      // solicitud por sí solo no es suficiente prueba de que es su dueño.
+      if (!dto.documento || dto.documento !== solicitud.estudiante.documento) {
+        throw new ForbiddenException('No puedes editar esta solicitud');
+      }
       // El estudiante puede corregir su solicitud mientras la convocatoria siga
       // abierta, incluso si ya se la aprobaron: en ese caso vuelve a quedar
       // pendiente porque la secretaría aprobó otros datos.
