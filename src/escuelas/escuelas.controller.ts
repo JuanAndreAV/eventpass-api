@@ -17,16 +17,20 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Role } from 'src/auth/roles-enum/role.enum';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('escuelas')
 export class EscuelasController {
   constructor(private readonly escuelasService: EscuelasService) {}
 
+  @Roles(Role.Admin)
   @Post()
   create(@Body() createEscuelaDto: CreateEscuelaDto) {
     return this.escuelasService.create(createEscuelaDto);
   }
 
-  @UseGuards(JwtAuthGuard,RolesGuard)
+  // Antes no exigía ningún rol (RolesGuard deja pasar si no hay @Roles):
+  // cualquier cuenta autenticada, de cualquier rol, podía listar escuelas.
+  @Roles(Role.Admin, Role.Secretaria)
   @Get()
   findAll() {
     return this.escuelasService.findAll();
@@ -37,6 +41,7 @@ export class EscuelasController {
     return this.escuelasService.findOne(id);
   }
 
+  @Roles(Role.Admin)
   @Patch(':id')
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -45,6 +50,7 @@ export class EscuelasController {
     return this.escuelasService.update(id, updateEscuelaDto);
   }
 
+  @Roles(Role.Admin)
   @Delete(':id')
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.escuelasService.removeEscuela(id);
