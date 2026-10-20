@@ -20,10 +20,19 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    if (await this.usuariosService.estaBloqueado(usuario)) {
+      throw new UnauthorizedException(
+        'Cuenta bloqueada temporalmente por demasiados intentos fallidos. Intenta de nuevo en unos minutos.',
+      );
+    }
+
     const esPasswordValido = await bcrypt.compare(dto.password, usuario.password);
     if (!esPasswordValido) {
+      await this.usuariosService.registrarIntentoFallido(usuario);
       throw new UnauthorizedException('Credenciales inválidas');
     }
+
+    await this.usuariosService.registrarLoginExitoso(usuario);
 
     const rolesCodigos = usuario.roles ? usuario.roles.map((r) => r.codigo) : [];
 

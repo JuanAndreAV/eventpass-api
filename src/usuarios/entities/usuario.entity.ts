@@ -35,6 +35,15 @@ export class Usuario extends PersonaBase {
   @Column({ default: true })
   activo: boolean;
 
+  // Protección contra fuerza bruta en /auth/login: se incrementa en cada
+  // contraseña incorrecta y se reinicia al autenticar con éxito. Al llegar al
+  // umbral, se bloquea temporalmente sin importar si la contraseña es correcta.
+  @Column({ name: 'intentos_fallidos', default: 0 })
+  intentosFallidos: number;
+
+  @Column({ name: 'bloqueado_hasta', type: 'timestamptz', nullable: true })
+  bloqueadoHasta: Date | null;
+
   @ManyToMany(() => Rol, (rol) => rol.usuarios)
   @JoinTable({
     name: 'usuarios_roles',

@@ -14,6 +14,11 @@ import { RolService } from '../rol/rol.service';
 
 const SALT_ROUNDS = 10;
 
+// Mismo umbral que usa el checklist de bloqueo de cuenta de Windows/CIS:
+// 5 intentos fallidos consecutivos, bloqueo de 30 minutos.
+const MAX_INTENTOS_FALLIDOS = 5;
+const DURACION_BLOQUEO_MS = 30 * 60 * 1000;
+
 @Injectable()
 export class UsuariosService {
   constructor(
@@ -66,9 +71,43 @@ export class UsuariosService {
     return this.usuarioRepository
       .createQueryBuilder('usuario')
       .addSelect('usuario.password')
+      .addSelect('usuario.intentosFallidos')
+      .addSelect('usuario.bloqueadoHasta')
       .leftJoinAndSelect('usuario.roles', 'roles')
       .where('usuario.email = :email', { email })
       .getOne();
+  }
+
+  // true si ya está bloqueado (y no hace nada más); si el bloqueo ya venció,
+  // lo limpia y devuelve false para dejar pasar el intento normalmente.
+  async estaBloqueado(usuario: Usuario): Promise<boolean> {
+    if (!usuario.bloqueadoHasta) return false;
+
+    if (usuario.bloqueadoHasta > new Date()) return true;
+
+    usuario.bloqueadoHasta = null;
+    usuario.intentosFallidos = 0;
+    await this.usuarioRepository.update(usuario.id, {
+      bloqueadoHasta: null,
+      intentosFallidos: 0,
+    });
+    return false;
+  }
+
+  async registrarIntentoFallido(usuario: Usuario): Promise<void> {
+    const intentos = usuario.intentosFallidos + 1;
+    const bloqueadoHasta =
+      intentos >= MAX_INTENTOS_FALLIDOS ? new Date(Date.now() + DURACION_BLOQUEO_MS) : null;
+
+    await this.usuarioRepository.update(usuario.id, {
+      intentosFallidos: bloqueadoHasta ? 0 : intentos,
+      bloqueadoHasta,
+    });
+  }
+
+  async registrarLoginExitoso(usuario: Usuario): Promise<void> {
+    if (usuario.intentosFallidos === 0 && !usuario.bloqueadoHasta) return;
+    await this.usuarioRepository.update(usuario.id, { intentosFallidos: 0, bloqueadoHasta: null });
   }
 
   async update(id: string, dto: UpdateUsuarioDto): Promise<Usuario> {

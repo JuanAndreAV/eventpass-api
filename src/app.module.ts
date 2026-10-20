@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AsistentesModule } from './asistentes/asistentes.module';
@@ -25,6 +27,9 @@ import { TransportesModule } from './transportes/transportes.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    // Límite por defecto para toda la API (defensa en profundidad); /auth/login
+    // tiene su propio límite más estricto con @Throttle en el controller.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -55,6 +60,9 @@ import { TransportesModule } from './transportes/transportes.module';
     TransportesModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}

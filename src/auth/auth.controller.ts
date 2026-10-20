@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express'; // 👈 Agregado 'type'
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -8,6 +9,10 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Límite propio, más estricto que el global del resto de la API: el bloqueo
+  // por cuenta ya frena ataques dirigidos a un email; esto frena además el
+  // credential stuffing (probar muchas cuentas distintas desde una IP).
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @Post('login')
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const { token, usuario } = await this.authService.login(dto);
