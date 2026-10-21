@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
 import { Usuario } from './entities/usuario.entity';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
@@ -108,6 +109,37 @@ export class UsuariosService {
   async registrarLoginExitoso(usuario: Usuario): Promise<void> {
     if (usuario.intentosFallidos === 0 && !usuario.bloqueadoHasta) return;
     await this.usuarioRepository.update(usuario.id, { intentosFallidos: 0, bloqueadoHasta: null });
+  }
+
+  // Trae también el hash del refresh token (select:false por defecto, igual
+  // que la contraseña) para que AuthService.refrescar() pueda compararlo.
+  async buscarPorIdConRefreshToken(id: string): Promise<Usuario | null> {
+    return this.usuarioRepository
+      .createQueryBuilder('usuario')
+      .addSelect('usuario.refreshTokenHash')
+      .addSelect('usuario.refreshTokenExpira')
+      .leftJoinAndSelect('usuario.roles', 'roles')
+      .where('usuario.id = :id', { id })
+      .getOne();
+  }
+
+  // Un solo refresh token activo por usuario: guardar uno nuevo invalida el
+  // anterior (tanto al rotar en cada refresh como al loguearse de nuevo).
+  //
+  // SHA-256 y no bcrypt: bcrypt trunca la entrada a 72 bytes, y un JWT es
+  // mucho más largo que eso — dos refresh tokens del mismo usuario comparten
+  // el mismo header y casi todo el payload (solo cambian jti/iat/exp al
+  // final), así que sus primeros 72 bytes son idénticos y bcrypt los habría
+  // tratado como "la misma" contraseña sin importar la firma real. Para un
+  // token ya aleatorio (no una contraseña elegida por una persona) lo que
+  // hace falta es una huella criptográfica sin ese límite, no una KDF lenta.
+  async guardarRefreshToken(usuarioId: string, tokenPlano: string, expira: Date): Promise<void> {
+    const hash = createHash('sha256').update(tokenPlano).digest('hex');
+    await this.usuarioRepository.update(usuarioId, { refreshTokenHash: hash, refreshTokenExpira: expira });
+  }
+
+  async revocarRefreshToken(usuarioId: string): Promise<void> {
+    await this.usuarioRepository.update(usuarioId, { refreshTokenHash: null, refreshTokenExpira: null });
   }
 
   async update(id: string, dto: UpdateUsuarioDto): Promise<Usuario> {
