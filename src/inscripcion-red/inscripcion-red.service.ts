@@ -108,14 +108,26 @@ export class InscripcionRedService {
   // participante de Música en el tramo 10-15 o 16-28. RPAC sin rol de equipo
   // siempre es la categoría RPAC, sin tramos de edad. Devuelve null cuando no
   // hay ninguna categoría que calce (ej. Música, Participante, 40 años).
+  //
+  // TODO(pendiente, sin datos todavía — confirmado con el cliente): hoy se
+  // confía en lo que la persona elige en el formulario (rol "equipo interno"
+  // y rango de edad "jóvenes música" son autodeclarados). Cuando existan las
+  // bases de datos correspondientes, agregar validación cruzada aquí:
+  //   - EQUIPO_INTERNO: verificar que `dto.documento` esté en la base de
+  //     personal/staff de la red seleccionada antes de aceptar ese rol.
+  //   - JOVENES_MUSICA: verificar que `dto.documento` corresponda a un
+  //     estudiante registrado (tabla `estudiantes`) antes de asignar esta
+  //     categoría, en vez de aceptar cualquier edad 16-28 autodeclarada.
+  // Hasta entonces, ambas quedan autodeclaradas sin cruce contra ninguna
+  // tabla.
   private determinarCategoria(dto: CreateInscripcionRedDto): CategoriaInscripcionRed | null {
     const { red, rol, edad } = dto;
 
     if (red === RedPrograma.MUSICA && ROLES_EQUIPO_MUSICA.includes(rol)) {
-      return CategoriaInscripcionRed.EQUIPO_INTERNO;
+      return CategoriaInscripcionRed.EQUIPO_INTERNO; // TODO: validar contra base de staff
     }
     if (red === RedPrograma.RPAC && ROLES_EQUIPO_RPAC.includes(rol)) {
-      return CategoriaInscripcionRed.EQUIPO_INTERNO;
+      return CategoriaInscripcionRed.EQUIPO_INTERNO; // TODO: validar contra base de staff
     }
     if (red === RedPrograma.MUSICA && rol === RolMusica.LABORATORIO_RED) {
       return CategoriaInscripcionRed.LABORATORIO_RED;
@@ -123,8 +135,11 @@ export class InscripcionRedService {
     if (red === RedPrograma.RPAC) {
       return CategoriaInscripcionRed.RPAC;
     }
-    // red === MUSICA, rol === PARTICIPANTE | ARTISTA_FORMADOR
+    // red === MUSICA, rol === PARTICIPANTE | ARTISTA_FORMADOR.
+    // NINOS_MUSICA: el cupo es de formularios (uno por niño), no de personas
+    // — la familia que lo acompaña no cuenta aparte ni se registra.
     if (edad >= 10 && edad <= 15) return CategoriaInscripcionRed.NINOS_MUSICA;
+    // TODO: validar contra base de estudiantes (ver nota arriba)
     if (edad >= 16 && edad <= 28) return CategoriaInscripcionRed.JOVENES_MUSICA;
     return null;
   }
