@@ -2,6 +2,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EquipoInternoService } from '../equipo-interno/equipo-interno.service';
+import { Estudiante } from '../estudiantes/entities/estudiante.entity';
 import { Evento } from '../eventos/entities/evento.entity';
 import { CreateInscripcionRedDto, RolMusica, RolRpac } from './dto/create-inscripcion-red.dto';
 import { CategoriaInscripcionRed, InscripcionRed, RedPrograma } from './entities/inscripcion-red.entity';
@@ -20,6 +22,8 @@ export class InscripcionRedService {
   constructor(
     @InjectRepository(InscripcionRed) private readonly inscripcionRepo: Repository<InscripcionRed>,
     @InjectRepository(Evento) private readonly eventoRepo: Repository<Evento>,
+    @InjectRepository(Estudiante) private readonly estudianteRepo: Repository<Estudiante>,
+    private readonly equipoInternoService: EquipoInternoService,
   ) {}
 
   async crear(dto: CreateInscripcionRedDto): Promise<InscripcionRed> {
@@ -40,7 +44,7 @@ export class InscripcionRedService {
     }
 
     this.validarRol(dto);
-    const categoria = this.determinarCategoria(dto);
+    const categoria = await this.determinarCategoria(dto);
     if (!categoria) throw new BadRequestException(SIN_CATEGORIA);
 
     const cupo = this.cupoDe(evento, categoria);
@@ -109,25 +113,23 @@ export class InscripcionRedService {
   // siempre es la categoría RPAC, sin tramos de edad. Devuelve null cuando no
   // hay ninguna categoría que calce (ej. Música, Participante, 40 años).
   //
-  // TODO(pendiente, sin datos todavía — confirmado con el cliente): hoy se
-  // confía en lo que la persona elige en el formulario (rol "equipo interno"
-  // y rango de edad "jóvenes música" son autodeclarados). Cuando existan las
-  // bases de datos correspondientes, agregar validación cruzada aquí:
-  //   - EQUIPO_INTERNO: verificar que `dto.documento` esté en la base de
-  //     personal/staff de la red seleccionada antes de aceptar ese rol.
-  //   - JOVENES_MUSICA: verificar que `dto.documento` corresponda a un
-  //     estudiante registrado (tabla `estudiantes`) antes de asignar esta
-  //     categoría, en vez de aceptar cualquier edad 16-28 autodeclarada.
-  // Hasta entonces, ambas quedan autodeclaradas sin cruce contra ninguna
-  // tabla.
-  private determinarCategoria(dto: CreateInscripcionRedDto): CategoriaInscripcionRed | null {
-    const { red, rol, edad } = dto;
+  // Validación cruzada contra datos reales (no solo lo autodeclarado en el
+  // formulario):
+  //   - EQUIPO_INTERNO: el documento debe existir en equipo_interno_personas
+  //     (tabla de personal de la Fundación UdeA) y estar activo.
+  //   - NINOS_MUSICA / JOVENES_MUSICA, solo cuando el rol es PARTICIPANTE
+  //     (no ARTISTA_FORMADOR, que es personal de formación, no un
+  //     estudiante): el documento debe existir en la tabla `estudiantes`.
+  private async determinarCategoria(dto: CreateInscripcionRedDto): Promise<CategoriaInscripcionRed | null> {
+    const { red, rol, edad, documento } = dto;
 
     if (red === RedPrograma.MUSICA && ROLES_EQUIPO_MUSICA.includes(rol)) {
-      return CategoriaInscripcionRed.EQUIPO_INTERNO; // TODO: validar contra base de staff
+      await this.exigirEquipoInterno(documento);
+      return CategoriaInscripcionRed.EQUIPO_INTERNO;
     }
     if (red === RedPrograma.RPAC && ROLES_EQUIPO_RPAC.includes(rol)) {
-      return CategoriaInscripcionRed.EQUIPO_INTERNO; // TODO: validar contra base de staff
+      await this.exigirEquipoInterno(documento);
+      return CategoriaInscripcionRed.EQUIPO_INTERNO;
     }
     if (red === RedPrograma.MUSICA && rol === RolMusica.LABORATORIO_RED) {
       return CategoriaInscripcionRed.LABORATORIO_RED;
@@ -136,12 +138,32 @@ export class InscripcionRedService {
       return CategoriaInscripcionRed.RPAC;
     }
     // red === MUSICA, rol === PARTICIPANTE | ARTISTA_FORMADOR.
+    if (rol === RolMusica.PARTICIPANTE) {
+      await this.exigirEstudiante(documento);
+    }
     // NINOS_MUSICA: el cupo es de formularios (uno por niño), no de personas
     // — la familia que lo acompaña no cuenta aparte ni se registra.
     if (edad >= 10 && edad <= 15) return CategoriaInscripcionRed.NINOS_MUSICA;
-    // TODO: validar contra base de estudiantes (ver nota arriba)
     if (edad >= 16 && edad <= 28) return CategoriaInscripcionRed.JOVENES_MUSICA;
     return null;
+  }
+
+  private async exigirEquipoInterno(documento: string): Promise<void> {
+    const esEquipoInterno = await this.equipoInternoService.existeActivo(documento);
+    if (!esEquipoInterno) {
+      throw new BadRequestException(
+        'El documento ingresado no corresponde a una persona registrada como equipo interno.',
+      );
+    }
+  }
+
+  private async exigirEstudiante(documento: string): Promise<void> {
+    const esEstudiante = await this.estudianteRepo.exists({ where: { documento } });
+    if (!esEstudiante) {
+      throw new BadRequestException(
+        'El documento ingresado no corresponde a un estudiante registrado en la red.',
+      );
+    }
   }
 
   private cupoDe(evento: Evento, categoria: CategoriaInscripcionRed): number | null | undefined {

@@ -22,6 +22,7 @@ import { RolModule } from './rol/rol.module';
 import { ValidacionIdentidadModule } from './validacion-identidad/validacion-identidad.module';
 import { TransportesModule } from './transportes/transportes.module';
 import { InscripcionRedModule } from './inscripcion-red/inscripcion-red.module';
+import { EquipoInternoModule } from './equipo-interno/equipo-interno.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { InscripcionRedModule } from './inscripcion-red/inscripcion-red.module';
     ValidacionIdentidadModule,
     TransportesModule,
     InscripcionRedModule,
+    EquipoInternoModule,
   ],
   controllers: [AppController],
   providers: [
