@@ -48,6 +48,26 @@ export class Evento {
   @Column({ default: true })
   activo: boolean;
 
+  // Formulario de inscripción por red (Música/RPAC) + rol + edad, con cupos
+  // por categoría en vez del formulario genérico de asistentes.
+  @Column({ default: false, name: 'usa_formulario_red' })
+  usaFormularioRed: boolean;
+
+  @Column({ type: 'int', nullable: true, name: 'cupo_ninos_musica' })
+  cupoNinosMusica?: number | null;
+
+  @Column({ type: 'int', nullable: true, name: 'cupo_jovenes_musica' })
+  cupoJovenesMusica?: number | null;
+
+  @Column({ type: 'int', nullable: true, name: 'cupo_laboratorio_red' })
+  cupoLaboratorioRed?: number | null;
+
+  @Column({ type: 'int', nullable: true, name: 'cupo_rpac' })
+  cupoRpac?: number | null;
+
+  @Column({ type: 'int', nullable: true, name: 'cupo_equipo_interno' })
+  cupoEquipoInterno?: number | null;
+
   @OneToMany(() => Asistente, (asistente) => asistente.evento)
   asistentes: Asistente[];
 

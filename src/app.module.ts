@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AsistentesModule } from './asistentes/asistentes.module';
@@ -19,13 +21,21 @@ import { Usuario } from './usuarios/entities/usuario.entity';
 import { RolModule } from './rol/rol.module';
 import { ValidacionIdentidadModule } from './validacion-identidad/validacion-identidad.module';
 import { TransportesModule } from './transportes/transportes.module';
+<<<<<<< HEAD
 import { EstudiantesImportModule } from './estudiantes-import/estudiantes-import/estudiantes-import.module';
+=======
+import { InscripcionRedModule } from './inscripcion-red/inscripcion-red.module';
+import { EquipoInternoModule } from './equipo-interno/equipo-interno.module';
+>>>>>>> 68b5c63cb5bad88f92f82b05b96ac4cce7d853ff
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    // Límite por defecto para toda la API (defensa en profundidad); /auth/login
+    // tiene su propio límite más estricto con @Throttle en el controller.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -54,9 +64,17 @@ import { EstudiantesImportModule } from './estudiantes-import/estudiantes-import
     RolModule,
     ValidacionIdentidadModule,
     TransportesModule,
+<<<<<<< HEAD
     EstudiantesImportModule
+=======
+    InscripcionRedModule,
+    EquipoInternoModule,
+>>>>>>> 68b5c63cb5bad88f92f82b05b96ac4cce7d853ff
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}

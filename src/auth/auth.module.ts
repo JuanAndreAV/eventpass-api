@@ -22,7 +22,10 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET', 'secreto_desarrollo_medellin'),
-        signOptions: { expiresIn: '8h' },
+        // Access token corto porque ahora hay refresh token: si se filtra,
+        // la ventana en la que sirve es chica. El refresh token (7 días) se
+        // firma aparte en AuthService con expiresIn propio.
+        signOptions: { expiresIn: '1h' },
       }),
     }),
   ],

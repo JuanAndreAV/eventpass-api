@@ -35,6 +35,26 @@ export class Usuario extends PersonaBase {
   @Column({ default: true })
   activo: boolean;
 
+  // Protección contra fuerza bruta en /auth/login: se incrementa en cada
+  // contraseña incorrecta y se reinicia al autenticar con éxito. Al llegar al
+  // umbral, se bloquea temporalmente sin importar si la contraseña es correcta.
+  @Column({ name: 'intentos_fallidos', default: 0 })
+  intentosFallidos: number;
+
+  @Column({ name: 'bloqueado_hasta', type: 'timestamptz', nullable: true })
+  bloqueadoHasta: Date | null;
+
+  // Refresh token: se guarda hasheado (igual que la contraseña) para poder
+  // revocarlo en logout sin tener que mantener una lista de tokens emitidos,
+  // y para que una fuga de la base no entregue el token en texto plano.
+  // Un solo refresh token activo por usuario — iniciar sesión en otro lugar
+  // invalida la sesión anterior.
+  @Column({ name: 'refresh_token_hash', type: 'varchar', nullable: true, select: false })
+  refreshTokenHash: string | null;
+
+  @Column({ name: 'refresh_token_expira', type: 'timestamptz', nullable: true, select: false })
+  refreshTokenExpira: Date | null;
+
   @ManyToMany(() => Rol, (rol) => rol.usuarios)
   @JoinTable({
     name: 'usuarios_roles',

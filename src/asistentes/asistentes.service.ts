@@ -88,6 +88,12 @@ export class AsistentesService {
     return { asistente: guardado, qrImagen };
   }
 
+  // Sin sesión, el documento es de facto público (lo puede escribir cualquiera
+  // en el formulario de inscripción): por eso esta consulta no debe devolver
+  // nombre, correo ni teléfono de alguien que solo "adivinó" el documento
+  // ajeno (mismo patrón de IDOR ya corregido en transportes). Solo se
+  // devuelve lo que el formulario necesita para prellenarse o para recuperar
+  // el propio QR si ya estaba inscrito.
   async verificarDocumento(documento: string, eventoId?: string): Promise<VerificarDocumentoResponseDto> {
     if (eventoId) {
       const yaInscrito = await this.asistenteRepo.findOne({
@@ -101,9 +107,6 @@ export class AsistentesService {
           asistenteId: yaInscrito.id,
           tipo: yaInscrito.tipo,
           qrImagen,
-          nombreCompleto: yaInscrito.nombreCompleto,
-          email: yaInscrito.email,
-          telefono: yaInscrito.telefono,
         };
       }
     }
@@ -114,9 +117,6 @@ export class AsistentesService {
         encontrado: true,
         tipo: TipoAsistente.ESTUDIANTE,
         estudianteId: estudiante.id,
-        nombreCompleto: `${estudiante.nombres} ${estudiante.apellidos}`,
-        email: estudiante.email,
-        telefono: estudiante.telefono,
       };
     }
 
@@ -128,9 +128,6 @@ export class AsistentesService {
       return {
         encontrado: true,
         tipo: asistentePrevio.tipo,
-        nombreCompleto: asistentePrevio.nombreCompleto,
-        email: asistentePrevio.email,
-        telefono: asistentePrevio.telefono,
       };
     }
 
