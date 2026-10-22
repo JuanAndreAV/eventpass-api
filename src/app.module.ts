@@ -21,12 +21,9 @@ import { Usuario } from './usuarios/entities/usuario.entity';
 import { RolModule } from './rol/rol.module';
 import { ValidacionIdentidadModule } from './validacion-identidad/validacion-identidad.module';
 import { TransportesModule } from './transportes/transportes.module';
-<<<<<<< HEAD
 import { EstudiantesImportModule } from './estudiantes-import/estudiantes-import/estudiantes-import.module';
-=======
 import { InscripcionRedModule } from './inscripcion-red/inscripcion-red.module';
 import { EquipoInternoModule } from './equipo-interno/equipo-interno.module';
->>>>>>> 68b5c63cb5bad88f92f82b05b96ac4cce7d853ff
 
 @Module({
   imports: [
@@ -64,12 +61,9 @@ import { EquipoInternoModule } from './equipo-interno/equipo-interno.module';
     RolModule,
     ValidacionIdentidadModule,
     TransportesModule,
-<<<<<<< HEAD
-    EstudiantesImportModule
-=======
+    EstudiantesImportModule,
     InscripcionRedModule,
     EquipoInternoModule,
->>>>>>> 68b5c63cb5bad88f92f82b05b96ac4cce7d853ff
   ],
   controllers: [AppController],
   providers: [

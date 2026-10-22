@@ -1,17 +1,3 @@
-<<<<<<< HEAD
-import { MigrationInterface, QueryRunner } from "typeorm";
-
-export class AgregarNuipTipoDocumento1792543884220 implements MigrationInterface {
- name = 'AgregarNuipTipoDocumento1792543884220'
-    public async up(queryRunner: QueryRunner): Promise<void> {
-await queryRunner.query(`ALTER TYPE "tipo_documento_enum" ADD VALUE IF NOT EXISTS 'NUIP'`);
-await queryRunner.query(`ALTER TYPE "tipo_documento_enum" ADD VALUE IF NOT EXISTS 'PPT'`);  }
-
-  public async down(): Promise<void> {
-    // Postgres no permite quitar un valor de un enum; se deja vacío a propósito
-  }
-
-=======
 // 1792543884220-AgregarNuipTipoDocumento.ts
 //
 // Archivo creado después de que la migración ya corrió contra la base
@@ -37,5 +23,4 @@ export class AgregarNuipTipoDocumento1792543884220 implements MigrationInterface
       'Si es necesario, crea una migración manual que reconstruya "tipo_documento_enum" sin NUIP/PPT.',
     );
   }
->>>>>>> 68b5c63cb5bad88f92f82b05b96ac4cce7d853ff
 }
