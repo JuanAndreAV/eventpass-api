@@ -30,11 +30,14 @@ export class Asistente {
   @Column()
   nombreCompleto: string;
 
-  @Column()
-  email: string;
+  // Nullable: un asistente tipo ESTUDIANTE toma el correo de su registro de
+  // Estudiante, que también es opcional ahí (no todos los estudiantes tienen
+  // uno registrado).
+  @Column({ nullable: true })
+  email?: string;
 
   @Column({ nullable: true })
-  telefono: string;
+  telefono?: string;
 
   @Column({ type: 'enum', enum: TipoAsistente, default: TipoAsistente.EXTERNO })
   tipo: TipoAsistente;

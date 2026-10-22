@@ -6,6 +6,8 @@ export enum TipoDocumento {
   CE = 'CE',
   RC = 'RC',
   PASAPORTE = 'PASAPORTE',
+  NUIP = 'NUIP', // Número Único de Identificación Personal (menores sin cédula aún)
+  PPT = 'PPT', // Permiso por Protección Temporal (migrantes venezolanos)
 }
 
 export abstract class PersonaBase {
