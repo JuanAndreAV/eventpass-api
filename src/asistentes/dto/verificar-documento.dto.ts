@@ -8,6 +8,6 @@ export class VerificarDocumentoResponseDto {
   qrImagen?: string;
   estudianteId?: string;
   nombreCompleto?: string;
-  email?: string;
-  telefono?: string;
+  email?: string | null;
+  telefono?: string | null;
 }
