@@ -21,6 +21,7 @@ import { Usuario } from './usuarios/entities/usuario.entity';
 import { RolModule } from './rol/rol.module';
 import { ValidacionIdentidadModule } from './validacion-identidad/validacion-identidad.module';
 import { TransportesModule } from './transportes/transportes.module';
+import { EstudiantesImportModule } from './estudiantes-import/estudiantes-import/estudiantes-import.module';
 import { InscripcionRedModule } from './inscripcion-red/inscripcion-red.module';
 import { EquipoInternoModule } from './equipo-interno/equipo-interno.module';
 
@@ -60,6 +61,7 @@ import { EquipoInternoModule } from './equipo-interno/equipo-interno.module';
     RolModule,
     ValidacionIdentidadModule,
     TransportesModule,
+    EstudiantesImportModule,
     InscripcionRedModule,
     EquipoInternoModule,
   ],
