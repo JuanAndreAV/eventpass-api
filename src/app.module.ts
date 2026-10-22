@@ -19,6 +19,7 @@ import { Usuario } from './usuarios/entities/usuario.entity';
 import { RolModule } from './rol/rol.module';
 import { ValidacionIdentidadModule } from './validacion-identidad/validacion-identidad.module';
 import { TransportesModule } from './transportes/transportes.module';
+import { EstudiantesImportModule } from './estudiantes-import/estudiantes-import/estudiantes-import.module';
 
 @Module({
   imports: [
@@ -52,7 +53,8 @@ import { TransportesModule } from './transportes/transportes.module';
     AuthModule,
     RolModule,
     ValidacionIdentidadModule,
-    TransportesModule
+    TransportesModule,
+    EstudiantesImportModule
   ],
   controllers: [AppController],
   providers: [AppService],

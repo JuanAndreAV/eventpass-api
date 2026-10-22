@@ -6,6 +6,8 @@ export enum TipoDocumento {
   CE = 'CE',
   RC = 'RC',
   PASAPORTE = 'PASAPORTE',
+  NUIP = 'NUIP',
+  PPT = 'PPT',
 }
 
 export abstract class PersonaBase {
