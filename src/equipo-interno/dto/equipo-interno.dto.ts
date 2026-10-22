@@ -22,23 +22,6 @@ export class CreateEquipoInternoDto {
   @IsString() @IsOptional() @MaxLength(20)
   telefono?: string;
 
-  // Dato sensible: solo Admin puede enviarlo (ver guard en el controller) y
-  // nunca se devuelve en una respuesta (select:false en la entidad).
-  @IsString() @IsOptional() @MaxLength(50)
-  cuentaBancaria?: string;
-
-  @IsString() @IsOptional() @MaxLength(100)
-  eps?: string;
-
-  @IsString() @IsOptional() @MaxLength(100)
-  arl?: string;
-
-  @IsString() @IsOptional() @MaxLength(100)
-  afp?: string;
-
-  @IsString() @IsOptional() @MaxLength(100)
-  cesantias?: string;
-
   @IsEnum(EstadoDatosPersona) @IsOptional()
   estadoDatos?: EstadoDatosPersona;
 

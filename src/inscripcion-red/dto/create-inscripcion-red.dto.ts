@@ -3,8 +3,8 @@ import {
   IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Max, MaxLength, Min,
   ValidateIf,
 } from 'class-validator';
+import { RedPrograma } from '../../asistentes/entities/asistente.entity';
 import { TipoDocumento } from '../../common/entity/persona-base.entity';
-import { RedPrograma } from '../entities/inscripcion-red.entity';
 
 // Roles válidos por red. El rol en sí se guarda como string libre en la
 // entidad (ver su comentario), pero la lista permitida depende de `red`,
@@ -62,12 +62,16 @@ export class CreateInscripcionRedDto {
   @IsEmail()
   correo: string;
 
-  @IsInt() @Min(0) @Max(120)
-  edad: number;
+  // Opcional: equipo interno no tiene de dónde sacar una edad real (ver
+  // comentario en la entidad) y no la necesita para nada. Para los demás
+  // roles de Música sí es obligatoria — eso se valida en el service
+  // (determinarCategoria), no aquí, porque depende de `rol`.
+  @IsOptional() @IsInt() @Min(0) @Max(120)
+  edad?: number;
 
   // Solo cuando red=MUSICA y es menor de edad (edad < 18). RPAC no pide
   // acudiente porque el formulario original solo hace esa pregunta en Música.
-  @ValidateIf((o) => o.red === RedPrograma.MUSICA && o.edad < 18)
+  @ValidateIf((o) => o.red === RedPrograma.MUSICA && o.edad != null && o.edad < 18)
   @IsString() @IsNotEmpty({ message: 'Indica el nombre del acudiente' }) @MaxLength(150)
   nombreAcudiente?: string;
 }

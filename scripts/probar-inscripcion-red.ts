@@ -9,16 +9,10 @@ import { TipoDocumento } from '../src/common/entity/persona-base.entity';
 import { Escuela } from '../src/escuelas/entities/escuela.entity';
 import { Estudiante } from '../src/estudiantes/entities/estudiante.entity';
 import { EquipoInternoService } from '../src/equipo-interno/equipo-interno.service';
-import { Cargo } from '../src/equipo-interno/entities/cargo.entity';
-import { ContratoInteradministrativo } from '../src/equipo-interno/entities/contrato-interadministrativo.entity';
 import { EquipoInterno } from '../src/equipo-interno/entities/equipo-interno.entity';
-import { Justificacion } from '../src/equipo-interno/entities/justificacion.entity';
-import { ObjetoContrato } from '../src/equipo-interno/entities/objeto-contrato.entity';
-import { PerfilFuncion } from '../src/equipo-interno/entities/perfil-funcion.entity';
-import { Vinculacion } from '../src/equipo-interno/entities/vinculacion.entity';
+import { Asistente, RedPrograma } from '../src/asistentes/entities/asistente.entity';
 import { Evento, TipoEvento } from '../src/eventos/entities/evento.entity';
 import { CreateInscripcionRedDto, RolMusica, RolRpac } from '../src/inscripcion-red/dto/create-inscripcion-red.dto';
-import { InscripcionRed, RedPrograma } from '../src/inscripcion-red/entities/inscripcion-red.entity';
 import { InscripcionRedService } from '../src/inscripcion-red/inscripcion-red.service';
 
 const PREFIJO_DOC = 'TESTRED';
@@ -40,7 +34,7 @@ async function esperarError(promesa: Promise<unknown>): Promise<string> {
 
 async function limpiar(eventoId?: string, estudianteId?: string, equipoInternoId?: string) {
   if (eventoId) {
-    await AppDataSource.query(`DELETE FROM inscripciones_red WHERE evento_id = $1`, [eventoId]);
+    await AppDataSource.query(`DELETE FROM asistentes WHERE evento_id = $1 AND tipo = 'RED'`, [eventoId]);
     await AppDataSource.query(`DELETE FROM eventos WHERE id = $1`, [eventoId]);
   }
   if (estudianteId) await AppDataSource.query(`DELETE FROM estudiantes WHERE id = $1`, [estudianteId]);
@@ -53,22 +47,14 @@ async function main() {
   await AppDataSource.initialize();
 
   const eventoRepo = AppDataSource.getRepository(Evento);
-  const inscripcionRepo = AppDataSource.getRepository(InscripcionRed);
+  const asistenteRepo = AppDataSource.getRepository(Asistente);
   const estudianteRepo = AppDataSource.getRepository(Estudiante);
   const escuelaRepo = AppDataSource.getRepository(Escuela);
   const equipoInternoRepo = AppDataSource.getRepository(EquipoInterno);
 
-  const equipoInternoService = new EquipoInternoService(
-    equipoInternoRepo,
-    AppDataSource.getRepository(Vinculacion),
-    AppDataSource.getRepository(Cargo),
-    AppDataSource.getRepository(ContratoInteradministrativo),
-    AppDataSource.getRepository(ObjetoContrato),
-    AppDataSource.getRepository(Justificacion),
-    AppDataSource.getRepository(PerfilFuncion),
-  );
+  const equipoInternoService = new EquipoInternoService(equipoInternoRepo);
   const servicio = new InscripcionRedService(
-    inscripcionRepo, eventoRepo, estudianteRepo, equipoInternoService,
+    asistenteRepo, eventoRepo, estudianteRepo, equipoInternoService,
   );
 
   const evento = await eventoRepo.save(eventoRepo.create({

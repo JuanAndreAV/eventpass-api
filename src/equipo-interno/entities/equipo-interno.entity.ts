@@ -1,9 +1,9 @@
 // equipo-interno/entities/equipo-interno.entity.ts
 import {
-  Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn,
+  Column, CreateDateColumn, Entity, Index, JoinColumn, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn,
 } from 'typeorm';
 import { TipoDocumento } from '../../common/entity/persona-base.entity';
-import { Vinculacion } from './vinculacion.entity';
+import { Usuario } from '../../usuarios/entities/usuario.entity';
 
 // No extiende PersonaBase (a diferencia de Usuario/Estudiante): PersonaBase
 // exige nombres y apellidos por separado, pero la fuente de este equipo
@@ -41,35 +41,21 @@ export class EquipoInterno {
   @Column({ type: 'varchar', nullable: true, length: 20 })
   telefono: string | null;
 
-  // Dato sensible: select:false (como password/refreshTokenHash en Usuario)
-  // para que ninguna consulta normal la traiga; solo se accede explícitamente
-  // con addSelect cuando de verdad haga falta, y nunca debería viajar a una
-  // respuesta HTTP.
-  @Column({ type: 'varchar', nullable: true, length: 50, select: false, name: 'cuenta_bancaria' })
-  cuentaBancaria: string | null;
-
-  @Column({ type: 'varchar', nullable: true, length: 100 })
-  eps: string | null;
-
-  @Column({ type: 'varchar', nullable: true, length: 100 })
-  arl: string | null;
-
-  @Column({ type: 'varchar', nullable: true, length: 100 })
-  afp: string | null;
-
-  @Column({ type: 'varchar', nullable: true, length: 100 })
-  cesantias: string | null;
-
   @Column({ type: 'enum', enum: EstadoDatosPersona, default: EstadoDatosPersona.COMPLETO, name: 'estado_datos' })
   estadoDatos: EstadoDatosPersona;
 
-  // Para dar de baja a alguien (fin de contrato) sin borrar su historial de
-  // vinculaciones ni romper la validación de equipo interno retroactivamente.
+  // Para dar de baja a alguien (fin de contrato) sin romper la validación de
+  // equipo interno retroactivamente.
   @Column({ default: true })
   activo: boolean;
 
-  @OneToMany(() => Vinculacion, (vinculacion) => vinculacion.persona)
-  vinculaciones: Vinculacion[];
+  // Nullable: la mayoría del personal real importado del Excel no tiene
+  // cuenta de usuario en este sistema (no inician sesión aquí) — solo se
+  // enlaza cuando coincide por documento, para no repetir nombre/correo que
+  // ya vive en "usuarios".
+  @OneToOne(() => Usuario, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'usuario_id' })
+  usuario?: Usuario | null;
 
   @CreateDateColumn({ type: 'timestamptz', name: 'creado_en' })
   creadoEn: Date;
