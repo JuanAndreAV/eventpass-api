@@ -176,11 +176,11 @@ async function main() {
     }));
     verificar('T9 RPAC OTRO -> cupo RPAC lleno', /cupo/i.test(e9), e9);
 
-    // T10: música artista formador, edad fuera de 10-15 y 16-28 -> sin categoría
+    // T10: música artista formador, menor de 10 -> mensaje propio (no "sin cupo")
     const e10 = await esperarError(servicio.crear({
       ...base(`${PREFIJO_DOC}010`), rol: RolMusica.ARTISTA_FORMADOR, edad: 5,
     }));
-    verificar('T10 música artista formador edad=5 -> sin categoría', /cupo disponible/i.test(e10), e10);
+    verificar('T10 música artista formador edad=5 -> mensaje de edad mínima', /10 años/i.test(e10), e10);
 
     // T11: documento duplicado en el mismo evento (mismos datos que T1) -> falla
     const e11 = await esperarError(servicio.crear({

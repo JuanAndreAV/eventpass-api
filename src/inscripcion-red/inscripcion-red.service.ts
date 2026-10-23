@@ -194,6 +194,12 @@ export class InscripcionRedService {
         throw new BadRequestException(DATOS_INCOMPLETOS);
       }
       const edad = this.calcularEdad(estudiante.fechaNacimiento);
+      // Antes que pedir el acudiente: si de todas formas no va a calificar
+      // por edad, que se entere de eso primero y no de un dato que al final
+      // no hacía falta.
+      if (edad < 10) {
+        throw new BadRequestException('Este programa está disponible para personas de 10 años en adelante.');
+      }
       if (edad < 18 && !dto.nombreAcudiente) {
         throw new BadRequestException(ACUDIENTE_REQUERIDO);
       }
@@ -338,6 +344,11 @@ export class InscripcionRedService {
     // por eso edad quedó opcional en el DTO.
     if (edad === undefined || edad === null) {
       throw new BadRequestException('Debes indicar tu edad.');
+    }
+    // Mensaje propio en vez de caer en el genérico "sin cupo disponible":
+    // no es un problema de cupos, es que el programa no cubre esta edad.
+    if (edad < 10) {
+      throw new BadRequestException('Este programa está disponible para personas de 10 años en adelante.');
     }
     if (rol === RolMusica.PARTICIPANTE) {
       await this.exigirEstudiante(documento);
