@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { Asistente, TipoAsistente } from './entities/asistente.entity';
 import { Evento } from '../eventos/entities/evento.entity';
@@ -167,7 +167,7 @@ async marcarIngreso(dto: MarcarIngresoDto): Promise<Asistente> {
     ? await this.findByQrToken(dto.qrToken)
     : await this.findByDocumentoYEvento(dto.documento!, dto.eventoId!);
 
-  return this.confirmarIngreso(asistente);
+  return this.confirmarIngreso(asistente, dto.fechaIngreso ? new Date(dto.fechaIngreso) : undefined);
 }
 
 async findByDocumentoYEvento(documento: string, eventoId: string): Promise<Asistente> {
@@ -182,13 +182,24 @@ async findByDocumentoYEvento(documento: string, eventoId: string): Promise<Asist
 }
 
 // Lógica compartida entre ambos caminos — idempotente, igual que antes
-private async confirmarIngreso(asistente: Asistente): Promise<Asistente> {
+private async confirmarIngreso(asistente: Asistente, fechaIngreso?: Date): Promise<Asistente> {
   if (asistente.ingresado) {
     return asistente; // ya había entrado, no es error, solo se informa el estado actual
   }
   asistente.ingresado = true;
-  asistente.fechaIngreso = new Date();
+  asistente.fechaIngreso = fechaIngreso ?? new Date();
   return this.asistenteRepo.save(asistente);
+}
+
+// Proyección liviana para el padrón que el escáner descarga para operar sin
+// conexión: nada de email/teléfono/datos de red, y solo quienes tienen QR
+// asignado (sin QR no hay nada que escanear offline).
+async findPadronOfflinePorEvento(eventoId: string): Promise<Pick<Asistente, 'id' | 'documento' | 'nombreCompleto' | 'qrToken' | 'tipo' | 'ingresado' | 'fechaIngreso'>[]> {
+  return this.asistenteRepo.find({
+    where: { evento: { id: eventoId }, qrToken: Not(IsNull()) },
+    select: { id: true, documento: true, nombreCompleto: true, qrToken: true, tipo: true, ingresado: true, fechaIngreso: true },
+    order: { fechaInscripcion: 'ASC' },
+  });
 }
 
   async remove(id: string): Promise<{ mensaje: string }> {

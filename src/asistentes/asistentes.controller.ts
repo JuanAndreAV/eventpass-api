@@ -29,6 +29,15 @@ export class AsistentesController {
     return this.asistentesService.findByEvento(eventoId);
   }
 
+  // Padrón liviano para que el escáner opere sin conexión: mismo rol que
+  // puede ver la lista completa, pero esta respuesta trae solo lo
+  // indispensable para validar un ingreso (sin email/teléfono).
+  @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.Admin, Role.Secretaria, Role.Formador)
+  @Get('evento/:eventoId/padron-offline')
+  padronOffline(@Param('eventoId') eventoId: string) {
+    return this.asistentesService.findPadronOfflinePorEvento(eventoId);
+  }
+
   // Pública (la usa "inscripcion-evento" sin cuenta): el service ya no
   // devuelve nombre/correo/teléfono para que no filtre datos de otra persona.
   @Get('verificar-documento/:documento')
