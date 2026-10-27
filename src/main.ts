@@ -14,7 +14,7 @@ async function bootstrap() {
   // Referrer-Policy, etc.). crossOriginResourcePolicy se relaja a
   // "cross-origin" a propósito: el front está en otro dominio y hace fetch
   // con credentials a los PDF/XLSX/QR de este API, no <img src> directo.
-  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  //app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
   // Mitigación de CSRF: la sesión va en cookie con SameSite=None en
   // producción (necesario porque front y API son dominios distintos), así
@@ -24,16 +24,16 @@ async function bootstrap() {
   // toda mutación bloquea ese vector sin tocar la sesión ni requerir un
   // token CSRF aparte. Las peticiones sin body (DELETE, PATCH sin datos) no
   // mandan Content-Type y siguen pasando.
-  app.use((req, res, next) => {
-    if (!METODOS_MUTABLES.has(req.method)) return next();
-    const contentType = req.headers['content-type'];
-    if (contentType && !contentType.includes('application/json')) {
-      return res.status(415).json({
-        message: 'Content-Type debe ser application/json',
-      });
-    }
-    next();
-  });
+  // app.use((req, res, next) => {
+  //   if (!METODOS_MUTABLES.has(req.method)) return next();
+  //   const contentType = req.headers['content-type'];
+  //   if (contentType && !contentType.includes('application/json')) {
+  //     return res.status(415).json({
+  //       message: 'Content-Type debe ser application/json',
+  //     });
+  //   }
+  //   next();
+  // });
 
   app.use(cookieParser())
   app.enableCors({

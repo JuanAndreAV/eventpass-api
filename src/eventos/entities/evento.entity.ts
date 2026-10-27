@@ -34,6 +34,9 @@ export class Evento {
   @Column({ type: 'enum', enum: TipoEvento, default: TipoEvento.INSTITUCIONAL })
   tipo: TipoEvento;
 
+  @Column({ type: 'varchar', length: 255 })
+  lugar: string;
+
   // Nullable: si es null, es un evento de alcance general (no ligado a una escuela específica)
   @ManyToOne(() => Escuela, (escuela) => escuela.eventos, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'escuela_id' })

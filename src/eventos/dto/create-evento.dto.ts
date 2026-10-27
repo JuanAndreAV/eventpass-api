@@ -43,6 +43,10 @@ export class CreateEventoDto {
 @IsUUID()
 escuelaId?: string;
 
+  @IsString()
+  @IsNotEmpty()
+  lugar: string;
+
   @IsBoolean()
   @IsOptional()
   activo?: boolean = true;

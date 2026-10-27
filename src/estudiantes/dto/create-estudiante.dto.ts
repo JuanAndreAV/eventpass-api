@@ -1,3 +1,4 @@
+// dto/create-estudiante.dto.ts (ya lo tenías, con los campos nuevos que definimos)
 import {
   IsString, IsNotEmpty, IsOptional, IsEmail, IsUUID,
   MaxLength, IsUrl, IsEnum, IsDateString,
@@ -5,8 +6,7 @@ import {
 import { TipoDocumento } from '../../common/entity/persona-base.entity';
 
 export class CreateEstudianteDto {
-  @IsEnum(TipoDocumento)
-  @IsOptional()
+  @IsEnum(TipoDocumento) @IsOptional()
   tipoDocumento?: TipoDocumento;
 
   @IsString() @IsNotEmpty() @MaxLength(20)
@@ -47,4 +47,24 @@ export class CreateEstudianteDto {
 
   @IsUUID() @IsNotEmpty()
   escuelaId: string;
+}
+
+
+
+
+
+// dto/identificar-estudiante.dto.ts
+
+export enum MetodoIdentificacion {
+  NFC = 'NFC',
+  QR = 'QR',
+  DOCUMENTO = 'DOCUMENTO',
+}
+
+export class IdentificarEstudianteDto {
+  @IsEnum(MetodoIdentificacion)
+  metodo: MetodoIdentificacion;
+
+  @IsString() @IsNotEmpty()
+  valor: string; // el UID leído, el token del QR, o el número de documento
 }
