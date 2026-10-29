@@ -321,6 +321,12 @@ export class InscripcionRedService {
   //   - NINOS_MUSICA / JOVENES_MUSICA, solo cuando el rol es PARTICIPANTE
   //     (no ARTISTA_FORMADOR, que es personal de formación, no un
   //     estudiante): el documento debe existir en la tabla `estudiantes`.
+  //   - LABORATORIO_RED: también exige estudiante — niños, jóvenes y
+  //     laboratorio son los tres tramos de la misma Red de Músicas, todos
+  //     viven en `estudiantes`. Quien no aparece en ninguna base de datos
+  //     (ni estudiantes ni equipo_interno_personas) es, por definición, de
+  //     Red de Prácticas (RPAC) — no se valida contra nada porque RPAC no
+  //     exige estar pre-registrado.
   private async determinarCategoria(dto: CreateInscripcionRedDto): Promise<CategoriaInscripcionRed | null> {
     const { red, rol, edad, documento } = dto;
 
@@ -333,6 +339,9 @@ export class InscripcionRedService {
       return CategoriaInscripcionRed.EQUIPO_INTERNO;
     }
     if (red === RedPrograma.MUSICA && rol === RolMusica.LABORATORIO_RED) {
+      // Laboratorio Red también es gente de la Red de Músicas (igual que
+      // niños/jóvenes): debe existir en `estudiantes`, no solo declararlo.
+      await this.exigirEstudiante(documento);
       return CategoriaInscripcionRed.LABORATORIO_RED;
     }
     if (red === RedPrograma.RPAC) {

@@ -32,12 +32,14 @@ async function esperarError(promesa: Promise<unknown>): Promise<string> {
   }
 }
 
-async function limpiar(eventoId?: string, estudianteId?: string, equipoInternoId?: string) {
+async function limpiar(eventoId?: string, estudianteIds: string[] = [], equipoInternoId?: string) {
   if (eventoId) {
     await AppDataSource.query(`DELETE FROM asistentes WHERE evento_id = $1 AND tipo = 'RED'`, [eventoId]);
     await AppDataSource.query(`DELETE FROM eventos WHERE id = $1`, [eventoId]);
   }
-  if (estudianteId) await AppDataSource.query(`DELETE FROM estudiantes WHERE id = $1`, [estudianteId]);
+  for (const id of estudianteIds) {
+    await AppDataSource.query(`DELETE FROM estudiantes WHERE id = $1`, [id]);
+  }
   if (equipoInternoId) {
     await AppDataSource.query(`DELETE FROM equipo_interno_personas WHERE id = $1`, [equipoInternoId]);
   }
@@ -57,18 +59,17 @@ async function main() {
     asistenteRepo, eventoRepo, estudianteRepo, equipoInternoService,
   );
 
-  const evento = await eventoRepo.save(eventoRepo.create({
-    nombre: 'TEST_INSCRIPCION_RED (borrar)',
-    tipo: TipoEvento.INSTITUCIONAL,
-    fechaInicio: new Date(Date.now() + 86400000),
-    activo: true,
-    usaFormularioRed: true,
-    cupoNinosMusica: 1,
-    cupoJovenesMusica: 1,
-    cupoLaboratorioRed: 1,
-    cupoRpac: 1,
-    cupoEquipoInterno: 1,
-  }));
+  // "lugar" es NOT NULL en la base real pero no existe en la entidad Evento
+  // de este checkout (ver aviso al final de la corrida) — se inserta aparte
+  // por SQL crudo solo para que el fixture de prueba no choque con esa
+  // restricción; el resto del test usa la entidad normalmente.
+  const [{ id: eventoTestId }] = await AppDataSource.query(`
+    INSERT INTO eventos (nombre, tipo, "fechaInicio", activo, usa_formulario_red,
+      cupo_ninos_musica, cupo_jovenes_musica, cupo_laboratorio_red, cupo_rpac, cupo_equipo_interno, lugar)
+    VALUES ($1, $2, $3, true, true, 1, 1, 1, 1, 1, 'Por definir')
+    RETURNING id
+  `, ['TEST_INSCRIPCION_RED (borrar)', TipoEvento.INSTITUCIONAL, new Date(Date.now() + 86400000)]);
+  const evento = await eventoRepo.findOneByOrFail({ id: eventoTestId });
 
   // Fixtures: un estudiante real y una persona de equipo interno real, para
   // poder probar el camino "sí está registrado" además del de rechazo.
@@ -80,6 +81,17 @@ async function main() {
     documento: estudianteDoc,
     nombres: 'Estudiante',
     apellidos: 'De Prueba',
+    escuela: escuelaCualquiera,
+  }));
+
+  // Fixture aparte para Laboratorio Red: ya no se puede reutilizar
+  // `estudianteDoc` (ese documento T1/T2 ya lo dejan inscrito en este mismo
+  // evento) y ahora Laboratorio también exige ser estudiante real.
+  const estudianteLabDoc = `${PREFIJO_DOC}ESTLAB`;
+  const estudianteLab = await estudianteRepo.save(estudianteRepo.create({
+    documento: estudianteLabDoc,
+    nombres: 'Estudiante',
+    apellidos: 'De Laboratorio',
     escuela: escuelaCualquiera,
   }));
 
@@ -128,11 +140,20 @@ async function main() {
     const t3 = await servicio.crear({ ...base(`${PREFIJO_DOC}003`), rol: RolMusica.ARTISTA_FORMADOR });
     verificar('T3 artista formador música (20) -> JOVENES_MUSICA', t3.categoria === 'JOVENES_MUSICA');
 
-    // T4: laboratorio red (35) -> OK, LABORATORIO_RED (sin validación cruzada)
+    // T4: laboratorio red (35), SÍ es estudiante registrado -> OK, LABORATORIO_RED
     const t4 = await servicio.crear({
-      ...base(`${PREFIJO_DOC}004`), rol: RolMusica.LABORATORIO_RED, edad: 35,
+      ...base(estudianteLabDoc), rol: RolMusica.LABORATORIO_RED, edad: 35,
     });
-    verificar('T4 laboratorio red (35) -> LABORATORIO_RED', t4.categoria === 'LABORATORIO_RED');
+    verificar('T4 laboratorio red (35), estudiante real -> LABORATORIO_RED', t4.categoria === 'LABORATORIO_RED');
+
+    // T4b: laboratorio red, NO es estudiante registrado -> rechazado
+    const e4b = await esperarError(servicio.crear({
+      ...base(`${PREFIJO_DOC}NOESTUDLAB`), rol: RolMusica.LABORATORIO_RED, edad: 35,
+    }));
+    verificar(
+      'T4b laboratorio red sin ser estudiante registrado -> rechazado',
+      /estudiante registrado/i.test(e4b), e4b,
+    );
 
     // T5: equipo de gestión música, SÍ es persona de equipo interno -> OK, EQUIPO_INTERNO
     const t5 = await servicio.crear({
@@ -189,17 +210,16 @@ async function main() {
     verificar('T11 documento duplicado -> rechazado', /existe/i.test(e11), e11);
 
     // T12: evento que no usa el formulario de red -> rechazado
-    const eventoSinRed = await eventoRepo.save(eventoRepo.create({
-      nombre: 'TEST_SIN_RED (borrar)',
-      tipo: TipoEvento.INSTITUCIONAL,
-      fechaInicio: new Date(Date.now() + 86400000),
-      usaFormularioRed: false,
-    }));
+    const [{ id: eventoSinRedId }] = await AppDataSource.query(`
+      INSERT INTO eventos (nombre, tipo, "fechaInicio", usa_formulario_red, lugar)
+      VALUES ($1, $2, $3, false, 'Por definir')
+      RETURNING id
+    `, ['TEST_SIN_RED (borrar)', TipoEvento.INSTITUCIONAL, new Date(Date.now() + 86400000)]);
     const e12 = await esperarError(servicio.crear({
-      ...base(`${PREFIJO_DOC}012`), rol: RolMusica.ARTISTA_FORMADOR, eventoId: eventoSinRed.id,
+      ...base(`${PREFIJO_DOC}012`), rol: RolMusica.ARTISTA_FORMADOR, eventoId: eventoSinRedId,
     }));
     verificar('T12 evento sin formulario de red -> rechazado', /no usa el formulario/i.test(e12), e12);
-    await limpiar(eventoSinRed.id);
+    await limpiar(eventoSinRedId);
 
     // Resumen de cupos refleja lo inscrito
     const resumen = await servicio.resumenCupos(evento.id);
@@ -211,7 +231,7 @@ async function main() {
       JSON.stringify(resumen),
     );
   } finally {
-    await limpiar(evento.id, estudiante.id, personaEquipoInterno.id);
+    await limpiar(evento.id, [estudiante.id, estudianteLab.id], personaEquipoInterno.id);
     await AppDataSource.destroy();
   }
 
