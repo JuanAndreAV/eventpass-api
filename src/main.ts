@@ -39,9 +39,9 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'https://redmusicasmedellin.co',
+      'https://wwww.redmusicasmedellin.co',
       'https://eventos-redmus.web.app',
     'https://scanner-redmus.web.app',
-      'http://localhost:4200'
     ],
     credentials: true,
 });
