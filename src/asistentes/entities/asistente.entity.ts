@@ -88,6 +88,12 @@ telefono: string | null;
   @Column({ type: 'int', nullable: true })
   edad: number | null;
 
+  @Column({ type: 'varchar', nullable: true, length: 100 })
+comuna: string | null;
+
+@Column({ type: 'text', nullable: true, name: 'respuesta_pregunta' })
+respuestaPregunta: string | null;
+
   @Column({ type: 'varchar', nullable: true, length: 150, name: 'nombre_acudiente' })
   nombreAcudiente: string | null;
 

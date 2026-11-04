@@ -24,6 +24,8 @@ import { TransportesModule } from './transportes/transportes.module';
 import { EstudiantesImportModule } from './estudiantes-import/estudiantes-import/estudiantes-import.module';
 import { InscripcionRedModule } from './inscripcion-red/inscripcion-red.module';
 import { EquipoInternoModule } from './equipo-interno/equipo-interno.module';
+import { DjangoModule } from './integrations/django/django.module';
+import { InformesModule } from './informes/informes.module';
 
 @Module({
   imports: [
@@ -64,6 +66,8 @@ import { EquipoInternoModule } from './equipo-interno/equipo-interno.module';
     EstudiantesImportModule,
     InscripcionRedModule,
     EquipoInternoModule,
+    DjangoModule,
+    InformesModule,
   ],
   controllers: [AppController],
   providers: [

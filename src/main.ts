@@ -42,6 +42,7 @@ async function bootstrap() {
       'https://www.redmusicasmedellin.co',
       'https://eventos-redmus.web.app',
     'https://scanner-redmus.web.app',
+    'http://localhost:4200'
     ],
     credentials: true,
 });

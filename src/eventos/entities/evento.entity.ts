@@ -74,6 +74,9 @@ export class Evento {
   @OneToMany(() => Asistente, (asistente) => asistente.evento)
   asistentes: Asistente[];
 
+  @Column({ type: 'varchar', length: 300, nullable: true, name: 'pregunta_personalizada' })
+preguntaPersonalizada?: string | null;
+
   @OneToMany(() => AccesoLog, (log) => log.evento)
   accesosLogs: AccesoLog[];
 

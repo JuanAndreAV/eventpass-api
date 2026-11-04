@@ -26,7 +26,11 @@ export class AsistentesService {
   ) {}
 
   async inscribir(dto: InscribirAsistenteDto): Promise<{ asistente: Asistente; qrImagen: string }> {
+    
     const evento = await this.eventoRepo.findOneBy({ id: dto.eventoId });
+    if (evento?.usaFormularioRed) {
+  throw new BadRequestException('Este evento usa el formulario de inscripción por red.');
+}
     if (!evento) throw new NotFoundException(`El evento con ID ${dto.eventoId} no existe`);
 
     if (evento.aforoMaximo) {

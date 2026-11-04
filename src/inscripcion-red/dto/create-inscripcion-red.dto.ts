@@ -47,8 +47,11 @@ export class CreateInscripcionRedDto {
   @IsString() @IsNotEmpty() @MaxLength(150)
   nombre: string;
 
-  @IsEnum(TipoDocumento)
-  tipoDocumento: TipoDocumento;
+  // Opcional en el DTO para que confirmar() pueda llamar a crear() sin él
+  // (en ese caso sale del registro del estudiante / equipo interno). El
+  // formulario completo del frontend sí lo exige.
+  @IsOptional() @IsEnum(TipoDocumento)
+  tipoDocumento?: TipoDocumento;
 
   @IsString() @IsNotEmpty() @MaxLength(20)
   documento: string;
@@ -62,16 +65,28 @@ export class CreateInscripcionRedDto {
   @IsEmail()
   correo: string;
 
-  // Opcional: equipo interno no tiene de dónde sacar una edad real (ver
-  // comentario en la entidad) y no la necesita para nada. Para los demás
-  // roles de Música sí es obligatoria — eso se valida en el service
+  // Opcional: equipo interno y RPAC no la piden ni la necesitan. Para los
+  // demás roles de Música sí es obligatoria — eso se valida en el service
   // (determinarCategoria), no aquí, porque depende de `rol`.
   @IsOptional() @IsInt() @Min(0) @Max(120)
   edad?: number;
 
-  // Solo cuando red=MUSICA y es menor de edad (edad < 18). RPAC no pide
-  // acudiente porque el formulario original solo hace esa pregunta en Música.
-  @ValidateIf((o) => o.red === RedPrograma.MUSICA && o.edad != null && o.edad < 18)
+  // Obligatorio solo cuando red=MUSICA y la edad está entre 10 y 13. Si se
+  // envía en cualquier otro caso, igual se valida (string no vacío, máx.
+  // 150): sin la segunda condición del ValidateIf, un valor mal formado
+  // pasaría sin revisión cuando la edad queda fuera del rango.
+  @ValidateIf(
+    (o) =>
+      (o.red === RedPrograma.MUSICA && o.edad != null && o.edad >= 10 && o.edad <= 13) ||
+      o.nombreAcudiente != null,
+  )
   @IsString() @IsNotEmpty({ message: 'Indica el nombre del acudiente' }) @MaxLength(150)
   nombreAcudiente?: string;
+
+  @IsOptional() @IsString() @MaxLength(100)
+  comuna?: string;
+
+  // Respuesta opcional a la pregunta personalizada del evento.
+  @IsOptional() @IsString() @MaxLength(500)
+  respuestaPregunta?: string;
 }
