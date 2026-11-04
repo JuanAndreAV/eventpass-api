@@ -343,26 +343,10 @@ export class InscripcionRedService {
   // siempre es la categoría RPAC, sin tramos de edad. Devuelve null cuando no
   // hay ninguna categoría que calce (ej. Música, Artista Formador, 40 años).
   //
-<<<<<<< HEAD
-  // Validación cruzada contra datos reales (no solo lo autodeclarado en el
-  // formulario):
-  //   - EQUIPO_INTERNO: el documento debe existir en equipo_interno_personas
-  //     (tabla de personal de la Fundación UdeA) y estar activo.
-  //   - NINOS_MUSICA / JOVENES_MUSICA, solo cuando el rol es PARTICIPANTE
-  //     (no ARTISTA_FORMADOR, que es personal de formación, no un
-  //     estudiante): el documento debe existir en la tabla `estudiantes`.
-  //   - LABORATORIO_RED: también exige estudiante — niños, jóvenes y
-  //     laboratorio son los tres tramos de la misma Red de Músicas, todos
-  //     viven en `estudiantes`. Quien no aparece en ninguna base de datos
-  //     (ni estudiantes ni equipo_interno_personas) es, por definición, de
-  //     Red de Prácticas (RPAC) — no se valida contra nada porque RPAC no
-  //     exige estar pre-registrado.
-=======
   // Ya NO se valida el rol contra las tablas de estudiantes / equipo interno:
   // quien no está registrado puede elegir cualquier rol y se guarda solo en
   // "asistentes". Consecuencia: el rol es autodeclarado, así que cualquiera
   // puede ocupar un cupo de EQUIPO_INTERNO.
->>>>>>> 133c3b8 (Update incripciones red and add informes)
   private async determinarCategoria(dto: CreateInscripcionRedDto): Promise<CategoriaInscripcionRed | null> {
     const { red, rol, edad } = dto;
 
@@ -373,9 +357,6 @@ export class InscripcionRedService {
       return CategoriaInscripcionRed.EQUIPO_INTERNO;
     }
     if (red === RedPrograma.MUSICA && rol === RolMusica.LABORATORIO_RED) {
-      // Laboratorio Red también es gente de la Red de Músicas (igual que
-      // niños/jóvenes): debe existir en `estudiantes`, no solo declararlo.
-      await this.exigirEstudiante(documento);
       return CategoriaInscripcionRed.LABORATORIO_RED;
     }
     if (red === RedPrograma.RPAC) {
