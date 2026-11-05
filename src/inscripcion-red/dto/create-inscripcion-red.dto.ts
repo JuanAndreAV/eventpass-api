@@ -83,8 +83,8 @@ export class CreateInscripcionRedDto {
   @IsString() @IsNotEmpty({ message: 'Indica el nombre del acudiente' }) @MaxLength(150)
   nombreAcudiente?: string;
 
-  @IsOptional() @IsString() @MaxLength(100)
-  comuna?: string;
+ @IsString() @IsNotEmpty({ message: 'Indica tu comuna' }) @MaxLength(100)
+comuna: string;
 
   // Respuesta opcional a la pregunta personalizada del evento.
   @IsOptional() @IsString() @MaxLength(500)

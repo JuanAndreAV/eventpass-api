@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsUUID, IsInt, IsDateString, IsNotEmpty, IsOptional, IsString, IsEnum, Min, IsBoolean } from "class-validator";
+import { IsUUID, IsInt, IsDateString, IsNotEmpty, IsOptional, IsString, IsEnum, Min, IsBoolean, MaxLength } from "class-validator";
 
 export enum TipoEvento {
   CONCIERTO = 'CONCIERTO',
@@ -76,4 +76,7 @@ escuelaId?: string;
 
   @IsInt() @Min(0) @IsOptional()
   cupoEquipoInterno?: number;
+
+  @IsOptional() @IsString() @MaxLength(300)
+preguntaPersonalizada?: string | null;
 }
