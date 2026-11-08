@@ -4,11 +4,31 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateEquipoInternoDto, UpdateEquipoInternoDto } from './dto/equipo-interno.dto';
 import { EquipoInterno } from './entities/equipo-interno.entity';
+import { Cargo } from './entities/cargo.entity';
+
+export interface CargoPersonaView {
+  cargo: string;
+  categoria: string;
+  detalle: string | null;
+  principal: boolean;
+  escuelaId: string | null;
+}
+ 
+export interface EquipoInternoActivoView {
+  id: string;
+  nombreCompleto: string;
+  email: string | null;
+  telefono: string | null;
+  tipoDocumento: EquipoInterno['tipoDocumento'];
+  cargos: CargoPersonaView[];
+  cargoPrincipal: CargoPersonaView | null;
+}
 
 @Injectable()
 export class EquipoInternoService {
   constructor(
     @InjectRepository(EquipoInterno) private readonly personaRepo: Repository<EquipoInterno>,
+    @InjectRepository(Cargo) private readonly cargoRepo: Repository<Cargo>
   ) {}
 
   // Lo usa inscripcion-red.service.ts para la categoría EQUIPO_INTERNO: si el
@@ -21,12 +41,51 @@ export class EquipoInternoService {
   // Igual que existeActivo, pero con los datos (nombre, correo, teléfono)
   // para que inscripcion-red pueda autocompletar el registro de equipo
   // interno sin volver a pedírselos.
-  async buscarActivo(documento: string): Promise<EquipoInterno | null> {
-    return this.personaRepo.findOne({
-      where: { documento, activo: true },
-      select: { id: true, nombreCompleto: true, email: true, telefono: true },
-    });
-  }
+ async buscarActivo(documento: string): Promise<EquipoInternoActivoView | null> {
+  const persona = await this.personaRepo.findOne({
+    // OJO: no filtres asignaciones.activo dentro de este where. Convertiría el
+    // join en INNER y dejaría de encontrar a quien aún no tiene cargo asignado.
+    where: { documento, activo: true },
+    relations: { asignaciones: { cargo: true, escuela: true } },
+    select: {
+      id: true,
+      nombreCompleto: true,
+      email: true,
+      telefono: true,
+      tipoDocumento: true, // antes faltaba: confirmar() leía este campo y siempre llegaba undefined
+      asignaciones: {
+        id: true,
+        detalle: true,
+        principal: true,
+        activo: true,
+        cargo: { id: true, nombre: true, categoria: true },
+        escuela: { id: true },
+      },
+    },
+  });
+  if (!persona) return null;
+ 
+  const cargos: CargoPersonaView[] = (persona.asignaciones ?? [])
+    .filter((a) => a.activo)
+    .map((a) => ({
+      cargo: a.cargo.nombre,
+      categoria: a.cargo.categoria,
+      detalle: a.detalle ?? null,
+      principal: a.principal,
+      escuelaId: a.escuela?.id ?? null,
+    }))
+    .sort((x, y) => Number(y.principal) - Number(x.principal));
+ 
+  return {
+    id: persona.id,
+    nombreCompleto: persona.nombreCompleto,
+    email: persona.email ?? null,
+    telefono: persona.telefono ?? null,
+    tipoDocumento: persona.tipoDocumento,
+    cargos,
+    cargoPrincipal: cargos[0] ?? null,
+  };
+}
 
   async findAll(): Promise<EquipoInterno[]> {
     return this.personaRepo.find({ order: { nombreCompleto: 'ASC' } });

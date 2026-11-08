@@ -21,13 +21,14 @@ import { RutasController } from './rutas.controller';
 import { RutasService } from './rutas.service';
 import { SolicitudesController } from './solicitudes.controller';
 import { SolicitudesService } from './solicitudes.service';
+import { EquipoAsignacion } from 'src/equipo-interno/entities/equipo_asignacion.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Zona, TipoVehiculo, Tarifa, Instrumento, Agrupacion,
       Ruta, EscuelaRuta, Ciclo, Solicitud,
-      Escuela, Estudiante,
+      Escuela, Estudiante, EquipoAsignacion,
     ]),
   ],
   controllers: [CatalogosController, RutasController, CiclosController, SolicitudesController],

@@ -36,7 +36,7 @@ export const DATOS_INCOMPLETOS = 'DATOS_INCOMPLETOS';
 // pedirlo — el frontend reintenta la confirmación mandándolo.
 export const ACUDIENTE_REQUERIDO = 'ACUDIENTE_REQUERIDO';
 
-export type OrigenIdentificacionRed = 'ESTUDIANTE' | 'EQUIPO_INTERNO';
+//export type OrigenIdentificacionRed = 'ESTUDIANTE' | 'EQUIPO_INTERNO';
 
 // Lo que el formulario público pide ANTES de mostrar el resto de los campos:
 // con solo el documento, le dice a la persona si ya la reconoce como
@@ -53,7 +53,8 @@ export type OrigenIdentificacionRed = 'ESTUDIANTE' | 'EQUIPO_INTERNO';
 export interface IdentificacionInscripcionRed {
   yaInscrito: boolean;
   encontrado: boolean;
-  origen?: OrigenIdentificacionRed;
+  origen?: 'ESTUDIANTE' | 'EQUIPO_INTERNO' | string; // string = cargo del equipo interno
+  
 }
 
 // Forma de respuesta que ya conocía el frontend desde que esto vivía en su
@@ -188,8 +189,8 @@ export class InscripcionRedService {
     const esEstudiante = await this.estudianteRepo.exists({ where: { documento } });
     if (esEstudiante) return { yaInscrito: false, encontrado: true, origen: 'ESTUDIANTE' };
 
-    const esEquipoInterno = await this.equipoInternoService.existeActivo(documento);
-    if (esEquipoInterno) return { yaInscrito: false, encontrado: true, origen: 'EQUIPO_INTERNO' };
+    const esEquipoInterno = await this.equipoInternoService.buscarActivo(documento);
+    if (esEquipoInterno) return { yaInscrito: false, encontrado: true, origen: esEquipoInterno.cargoPrincipal?.cargo ?? 'EQUIPO_INTERNO' };
 
     return { yaInscrito: false, encontrado: false };
   }

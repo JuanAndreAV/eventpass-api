@@ -66,14 +66,7 @@ export class Usuario extends PersonaBase {
   @OneToOne(() => Estudiante, (estudiante) => estudiante.usuario)
   estudiante?: Estudiante;
 
-  @OneToMany(() => Escuela, (escuela) => escuela.director)
-escuelasDirector: Escuela[];
-
-@OneToMany(() => Escuela, (escuela) => escuela.apoyoAdministrativo)
-escuelasApoyo: Escuela[];
-
-@ManyToMany(() => Escuela, (escuela) => escuela.formadores)
-escuelasFormador: Escuela[];
+  
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

@@ -15,7 +15,9 @@ import { Instrumento } from './entities/instrumento.entity';
 import { Ruta } from './entities/ruta.entity';
 import { EstadoSolicitud, Solicitud } from './entities/solicitud.entity';
 import { CreateSolicitudDto, UpdateSolicitudDto } from './dto/solicitud.dto';
+import { EquipoAsignacion } from 'src/equipo-interno/entities/equipo_asignacion.entity';
 
+const CARGO_APOYO = 'Apoyo administrativo de escuela';
 export interface UsuarioAutenticado {
   id: string;
   email: string;
@@ -37,6 +39,7 @@ export class SolicitudesService {
     @InjectRepository(Escuela) private readonly escuelaRepo: Repository<Escuela>,
     @InjectRepository(Agrupacion) private readonly agrupacionRepo: Repository<Agrupacion>,
     @InjectRepository(EscuelaRuta) private readonly mapeoRepo: Repository<EscuelaRuta>,
+    @InjectRepository(EquipoAsignacion) private readonly asignacionRepo: Repository<EquipoAsignacion>,
   ) {}
 
   async create(dto: CreateSolicitudDto): Promise<Solicitud> {
@@ -144,18 +147,18 @@ export class SolicitudesService {
     };
   }
 
-  async findOne(id: string): Promise<Solicitud> {
-    const solicitud = await this.solicitudRepo.findOne({
-      where: { id },
-      relations: {
-        ciclo: true, estudiante: true, escuela: { apoyoAdministrativo: true },
-        agrupacion: true, instrumento: true, escuelaSalida: true,
-        escuelaLlegada: true, revisadaPor: true,
-      },
-    });
-    if (!solicitud) throw new NotFoundException(`La solicitud con ID ${id} no existe`);
-    return solicitud;
-  }
+ async findOne(id: string): Promise<Solicitud> {
+  const solicitud = await this.solicitudRepo.findOne({
+    where: { id },
+    relations: {
+      ciclo: true, estudiante: true, escuela: true,
+      agrupacion: true, instrumento: true, escuelaSalida: true,
+      escuelaLlegada: true, revisadaPor: true,
+    },
+  });
+  if (!solicitud) throw new NotFoundException(`La solicitud con ID ${id} no existe`);
+  return solicitud;
+}
 
   // Hasta la fecha de cierre edita el propio estudiante (sin cuenta); después,
   // solo el administrativo. `usuario` llega solo si la petición trae sesión.
@@ -379,25 +382,31 @@ export class SolicitudesService {
   }
 
   // null = sin restricción (admin). Una lista = solo esas escuelas (secretaria).
-  private async escuelasVisiblesPara(usuario: UsuarioAutenticado): Promise<string[] | null> {
-    if (usuario.roles?.includes(Role.Admin)) return null;
-
-    const escuelas = await this.escuelaRepo.find({
-      where: { apoyoAdministrativo: { id: usuario.id } },
-      select: { id: true },
-    });
-    return escuelas.map((e) => e.id);
+ private async escuelasVisiblesPara(usuario: UsuarioAutenticado): Promise<string[] | null> {
+  if (usuario.roles?.includes(Role.Admin)) return null;
+ 
+  const asignaciones = await this.asignacionRepo.find({
+    where: {
+      activo: true,
+      cargo: { nombre: CARGO_APOYO },
+      // Ajusta "usuario" al nombre real de la relación hacia Usuario en EquipoInterno
+      persona: { usuario: { id: usuario.id } },
+    },
+    relations: { escuela: true },
+  });
+ 
+  return asignaciones.flatMap((a) => (a.escuela ? [a.escuela.id] : []));
+}
+ 
+private async verificarPuedeRevisar(
+  solicitud: Solicitud,
+  usuario: UsuarioAutenticado,
+): Promise<void> {
+  const escuelasPermitidas = await this.escuelasVisiblesPara(usuario);
+  if (escuelasPermitidas === null) return;
+ 
+  if (!escuelasPermitidas.includes(solicitud.escuela.id)) {
+    throw new ForbiddenException('Solo puedes revisar solicitudes de tu propia escuela');
   }
-
-  private async verificarPuedeRevisar(
-    solicitud: Solicitud,
-    usuario: UsuarioAutenticado,
-  ): Promise<void> {
-    const escuelasPermitidas = await this.escuelasVisiblesPara(usuario);
-    if (escuelasPermitidas === null) return;
-
-    if (!escuelasPermitidas.includes(solicitud.escuela.id)) {
-      throw new ForbiddenException('Solo puedes revisar solicitudes de tu propia escuela');
-    }
-  }
+}
 }

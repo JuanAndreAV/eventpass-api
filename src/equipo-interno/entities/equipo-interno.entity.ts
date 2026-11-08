@@ -1,9 +1,10 @@
 // equipo-interno/entities/equipo-interno.entity.ts
 import {
-  Column, CreateDateColumn, Entity, Index, JoinColumn, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn,
+  Column, CreateDateColumn, Entity, Index, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn,
 } from 'typeorm';
 import { TipoDocumento } from '../../common/entity/persona-base.entity';
 import { Usuario } from '../../usuarios/entities/usuario.entity';
+import { EquipoAsignacion } from './equipo_asignacion.entity';
 
 // No extiende PersonaBase (a diferencia de Usuario/Estudiante): PersonaBase
 // exige nombres y apellidos por separado, pero la fuente de este equipo
@@ -56,6 +57,12 @@ export class EquipoInterno {
   @OneToOne(() => Usuario, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'usuario_id' })
   usuario?: Usuario | null;
+
+  @Column({ name: 'tipo_contrato', type: 'varchar', nullable: true })
+tipoContrato: 'LABORAL' | 'PRESTACION_SERVICIOS' | null;
+
+@OneToMany(() => EquipoAsignacion, (a) => a.persona)
+asignaciones: EquipoAsignacion[];
 
   @CreateDateColumn({ type: 'timestamptz', name: 'creado_en' })
   creadoEn: Date;
