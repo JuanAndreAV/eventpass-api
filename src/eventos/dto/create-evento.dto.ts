@@ -51,6 +51,10 @@ escuelaId?: string;
   @IsOptional()
   activo?: boolean = true;
 
+  @IsBoolean()
+  @IsOptional()
+  visible?: boolean = true;
+
   // Activa el formulario de inscripción por red/rol/edad (en vez del
   // formulario genérico de inscripcion-evento) para este evento.
   @IsBoolean()

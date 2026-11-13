@@ -28,7 +28,7 @@ import { EquipoAsignacion } from 'src/equipo-interno/entities/equipo_asignacion.
     TypeOrmModule.forFeature([
       Zona, TipoVehiculo, Tarifa, Instrumento, Agrupacion,
       Ruta, EscuelaRuta, Ciclo, Solicitud,
-      Escuela, Estudiante, EquipoAsignacion,
+      Escuela, Estudiante, EquipoAsignacion, 
     ]),
   ],
   controllers: [CatalogosController, RutasController, CiclosController, SolicitudesController],

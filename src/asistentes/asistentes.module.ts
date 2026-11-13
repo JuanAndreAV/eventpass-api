@@ -5,10 +5,11 @@ import { Asistente } from './entities/asistente.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Evento } from 'src/eventos/entities/evento.entity';
 import { Estudiante } from 'src/estudiantes/entities/estudiante.entity';
+import { Escuela } from 'src/escuelas/entities/escuela.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Asistente, Evento, Estudiante])
+    TypeOrmModule.forFeature([Asistente, Evento, Estudiante, Escuela])
   ],
   controllers: [AsistentesController],
   providers: [AsistentesService],

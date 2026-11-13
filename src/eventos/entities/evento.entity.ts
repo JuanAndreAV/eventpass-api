@@ -77,6 +77,9 @@ export class Evento {
   @Column({ type: 'varchar', length: 300, nullable: true, name: 'pregunta_personalizada' })
 preguntaPersonalizada?: string | null;
 
+@Column({ default: true })
+visible: boolean;
+
   @OneToMany(() => AccesoLog, (log) => log.evento)
   accesosLogs: AccesoLog[];
 

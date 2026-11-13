@@ -26,6 +26,8 @@ import { InscripcionRedModule } from './inscripcion-red/inscripcion-red.module';
 import { EquipoInternoModule } from './equipo-interno/equipo-interno.module';
 import { DjangoModule } from './integrations/django/django.module';
 import { InformesModule } from './informes/informes.module';
+import { AgrupacionIntegradaModule } from './agrupacion-integrada/agrupacion-integrada.module';
+import { InscripcionPrivadaModule } from './inscripcion-privada/inscripcion-privada.module';
 
 @Module({
   imports: [
@@ -68,6 +70,8 @@ import { InformesModule } from './informes/informes.module';
     EquipoInternoModule,
     DjangoModule,
     InformesModule,
+    AgrupacionIntegradaModule,
+    InscripcionPrivadaModule,
   ],
   controllers: [AppController],
   providers: [

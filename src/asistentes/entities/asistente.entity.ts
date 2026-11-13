@@ -7,6 +7,7 @@ import { Evento } from '../../eventos/entities/evento.entity';
 import { Estudiante } from '../../estudiantes/entities/estudiante.entity';
 import { AccesoLog } from '../../acceso-log/entities/acceso-log.entity'; // 👈 nuevo import
 import { TipoDocumento } from '../../common/entity/persona-base.entity';
+import { Escuela } from 'src/escuelas/entities/escuela.entity';
 
 export enum TipoAsistente {
   ESTUDIANTE = 'ESTUDIANTE',
@@ -112,6 +113,21 @@ respuestaPregunta: string | null;
 
   @OneToMany(() => AccesoLog, (log) => log.asistente) // 👈 la relación que faltaba
   accesosLogs: AccesoLog[];
+
+  @Column({ name: 'cantidad_boletas', type: 'int', default: 1 })
+cantidadBoletas: number;
+ 
+@Column({ name: 'boletas_ingresadas', type: 'int', default: 0 })
+boletasIngresadas: number;
+ 
+@Column({ type: 'varchar', length: 20, nullable: true })
+modalidad: 'ESCUELA' | 'AGRUPACION' | null;
+ 
+// Relación real con la escuela. Se llama escuelaRel porque la propiedad
+// "escuela" ya existe en esta entidad como texto libre.
+@ManyToOne(() => Escuela, { nullable: true, onDelete: 'SET NULL' })
+@JoinColumn({ name: 'escuela_id' })
+escuelaRel: Escuela | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   fechaInscripcion: Date;
