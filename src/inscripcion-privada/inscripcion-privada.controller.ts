@@ -7,7 +7,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Role } from '../auth/roles-enum/role.enum';
 import {
-  ActualizarConfiguracionDto, ActualizarCupoDto, CrearConfiguracionDto,
+  ActualizarConfiguracionDto, ActualizarCupoDto, ActualizarTodosCuposDto, CrearConfiguracionDto,
+  CrearEventoPrivadoDto,
   InscribirAgrupacionDto, InscribirEscuelaDto,
 } from './dto/create-inscripcion-privada.dto';
 import { InscripcionPrivadaService } from './inscripcion-privada.service';
@@ -59,6 +60,32 @@ export class InscripcionPrivadaController {
   ) {
     return this.service.actualizarCupo(cupoId, dto.cupo);
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.Admin)
+   @Get('admin')
+listar() { return this.service.listar(); 
+
+}
+  @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.Admin)
+  @Post('admin/eventos')
+  crearEventoPrivado(@Body() dto: CrearEventoPrivadoDto) {
+    return this.service.crearEventoPrivado(dto);
+  }
+  @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.Admin)
+  @Patch('admin/eventos/:eventoId/cupos')
+  actualizarTodosLosCupos(
+    @Param('eventoId', ParseUUIDPipe) eventoId: string,
+    @Body() dto: ActualizarTodosCuposDto,
+  ) {
+    return this.service.actualizarTodosLosCupos(eventoId, dto.cupo);
+  }
+    @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.Admin)
+  @Post('admin/eventos/:eventoId/cupos/sincronizar')
+  @HttpCode(200)
+  sincronizarCupos(@Param('eventoId', ParseUUIDPipe) eventoId: string) {
+    return this.service.sincronizarCupos(eventoId);
+  }
+
 
   // ================= PÚBLICO: se entra con el token del enlace =================
 

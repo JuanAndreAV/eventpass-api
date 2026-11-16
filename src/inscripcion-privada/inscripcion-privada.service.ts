@@ -14,8 +14,10 @@ import { EstudianteAgrupacion } from '../agrupacion-integrada/entities/estudiant
 import { EventoCupoEscuela } from './entities/evento-cupo-escuela.entity';
 import { EventoInscripcionPrivada } from './entities/inscripcion-privada.entity';
 import {
+  CrearEventoPrivadoDto, ActualizarCupoDto, ActualizarTodosCuposDto,
   ActualizarConfiguracionDto, CrearConfiguracionDto, InscribirAgrupacionDto, InscribirEscuelaDto,
 } from './dto/create-inscripcion-privada.dto';
+import { TipoEvento } from '../eventos/entities/evento.entity';
 
 export interface InscripcionPrivadaView {
   id: string;
@@ -260,6 +262,107 @@ export class InscripcionPrivadaService {
   // ============================================================
   // ADMINISTRACIÓN (solo con sesión de administrador)
   // ============================================================
+async listar() {
+  const configs = await this.cfgRepo.find({
+    relations: { evento: true },
+    order: { creadoEn: 'DESC' },
+  });
+  return configs.map((c) => ({
+    eventoId: c.evento.id,
+    nombre: c.evento.nombre,
+    lugar: c.evento.lugar,
+    fechaInicio: c.evento.fechaInicio,
+    eventoActivo: c.evento.activo,
+    activa: c.activa,
+    escuelasHabilitadas: c.escuelasHabilitadas,
+    agrupacionesHabilitadas: c.agrupacionesHabilitadas,
+  }));
+}
+
+// Crea el evento, su configuración y un cupo por escuela activa en UNA transacción.
+// El evento nace oculto (visible = false) y sin formulario público: nunca llega a verse.
+async crearEventoPrivado(dto: CrearEventoPrivadoDto) {
+  const { nombre, lugar, fechaInicio, descripcion, ...config } = dto;
+
+  const eventoId = await this.dataSource.transaction(async (m: EntityManager) => {
+    const evento = await m.save(
+      m.create(Evento, {
+        nombre: nombre.trim(),
+        lugar: lugar.trim(),
+        descripcion,
+        fechaInicio: new Date(fechaInicio),
+        tipo: TipoEvento.CONCIERTO,
+        activo: true,
+        visible: false,
+        usaFormularioRed: false,
+      }),
+    );
+
+    const cfg = await m.save(
+      m.create(EventoInscripcionPrivada, {
+        evento: { id: evento.id } as Evento,
+        token: this.nuevoToken(),
+        ...config,
+        topeBoletasPorPersona: config.topeBoletasPorPersona ?? null,
+      }),
+    );
+
+    const escuelas = await m.find(Escuela, { where: { activa: true }, select: { id: true } });
+    if (escuelas.length > 0) {
+      await m.insert(
+        EventoCupoEscuela,
+        escuelas.map((e) => ({
+          evento: { id: evento.id } as Evento,
+          escuela: { id: e.id } as Escuela,
+          cupo: cfg.cupoPorEscuelaDefecto,
+          usadas: 0,
+        })),
+      );
+    }
+    return evento.id;
+  });
+
+  return this.resumen(eventoId);
+}
+
+// Mismo cupo para todas las escuelas. Las que ya tienen más boletas tomadas que el nuevo
+// cupo se omiten (no se puede bajar de lo ya reservado); se informa cuántas.
+async actualizarTodosLosCupos(eventoId: string, cupo: number) {
+  await this.cfgPorEvento(eventoId);
+  const r = await this.cupoRepo
+    .createQueryBuilder()
+    .update(EventoCupoEscuela)
+    .set({ cupo })
+    .where('evento_id = :eventoId AND usadas <= :cupo', { eventoId, cupo })
+    .execute();
+  const total = await this.cupoRepo.count({ where: { evento: { id: eventoId } } });
+  const actualizadas = r.affected ?? 0;
+  return { actualizadas, omitidas: total - actualizadas };
+}
+
+// Agrega el cupo por defecto a las escuelas activas que todavía no tienen fila
+// (por ejemplo, una escuela creada después de configurar el evento).
+async sincronizarCupos(eventoId: string) {
+  const cfg = await this.cfgPorEvento(eventoId);
+  const existentes = await this.cupoRepo.find({
+    where: { evento: { id: eventoId } },
+    relations: { escuela: true },
+  });
+  const ya = new Set(existentes.map((c) => c.escuela.id));
+  const activas = await this.escuelaRepo.find({ where: { activa: true }, select: { id: true } });
+  const faltan = activas.filter((e) => !ya.has(e.id));
+  if (faltan.length > 0) {
+    await this.cupoRepo.insert(
+      faltan.map((e) => ({
+        evento: { id: eventoId } as Evento,
+        escuela: { id: e.id } as Escuela,
+        cupo: cfg.cupoPorEscuelaDefecto,
+        usadas: 0,
+      })),
+    );
+  }
+  return { agregadas: faltan.length };
+}
 
   async crearConfiguracion(eventoId: string, dto: CrearConfiguracionDto) {
     const evento = await this.eventoRepo.findOneBy({ id: eventoId });
@@ -309,6 +412,8 @@ export class InscripcionPrivadaService {
       .getRawMany<{ modalidad: string | null; inscripciones: string; boletas: string; ingresadas: string }>();
 
     return {
+        evento: { id: cfg.evento.id, nombre: cfg.evento.nombre, lugar: cfg.evento.lugar,
+ fechaInicio: cfg.evento.fechaInicio, activo: cfg.evento.activo },
       token: cfg.token,
       activa: cfg.activa,
       escuelasHabilitadas: cfg.escuelasHabilitadas,
@@ -362,7 +467,9 @@ export class InscripcionPrivadaService {
   }
 
   private async cfgPorEvento(eventoId: string): Promise<EventoInscripcionPrivada> {
-    const cfg = await this.cfgRepo.findOne({ where: { evento: { id: eventoId } } });
+    const cfg = await this.cfgRepo.findOne({ where: { evento: { id: eventoId } },
+    
+    relations: { evento: true } });
     if (!cfg) throw new NotFoundException('Este evento no tiene inscripción privada configurada.');
     return cfg;
   }

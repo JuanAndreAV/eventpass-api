@@ -1,5 +1,5 @@
 import {
-  IsBoolean, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID,
+  IsBoolean, IsDateString, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID,
   Matches, Max, MaxLength, Min,
 } from 'class-validator';
 
@@ -55,6 +55,26 @@ export class ActualizarConfiguracionDto extends CrearConfiguracionDto {
 }
 
 export class ActualizarCupoDto {
+  @IsInt() @Min(0)
+  cupo: number;
+}
+
+export class CrearEventoPrivadoDto extends CrearConfiguracionDto {
+  @IsString() @IsNotEmpty() @MaxLength(255)
+  nombre: string;
+
+  @IsString() @IsNotEmpty() @MaxLength(255)
+  lugar: string;
+
+  // Con zona horaria, por ejemplo 2026-12-05T18:00:00-05:00
+  @IsDateString()
+  fechaInicio: string;
+
+  @IsOptional() @IsString() @MaxLength(2000)
+  descripcion?: string;
+}
+
+export class ActualizarTodosCuposDto {
   @IsInt() @Min(0)
   cupo: number;
 }
