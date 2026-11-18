@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -25,9 +25,12 @@ export class EventosController {
     return await this.eventosService.findAll();
   }
   // eventos/eventos.controller.ts — nuevo endpoint
+  // ?incluirOcultos=true lo usa el escáner para listar también los eventos
+  // privados. El nombre del evento no es secreto; lo que protege la
+  // inscripción privada es el token del enlace.
   @Get('activos')
-  async findActivos() {
-    return await this.eventosService.findActivos();
+  async findActivos(@Query('incluirOcultos') incluirOcultos?: string) {
+    return await this.eventosService.findActivos(incluirOcultos === 'true');
   }
 
   @Get(':id')

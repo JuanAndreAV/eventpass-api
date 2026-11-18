@@ -1,7 +1,9 @@
 // inscripcion-privada/inscripcion-privada.controller.ts
 import {
-  Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards,
+  BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post,
+  Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -62,9 +64,9 @@ export class InscripcionPrivadaController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.Admin)
-   @Get('admin')
-listar() { return this.service.listar(); 
-
+@Get('admin')
+listar() {
+  return this.service.listar();
 }
   @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.Admin)
   @Post('admin/eventos')
@@ -86,6 +88,51 @@ listar() { return this.service.listar();
     return this.service.sincronizarCupos(eventoId);
   }
 
+  // ---------- Preinscritos de escuelas (Excel del director) ----------
+
+  @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.Admin)
+  @Get('admin/eventos/:eventoId/escuelas/:escuelaId/plantilla')
+  async plantilla(
+    @Param('eventoId', ParseUUIDPipe) eventoId: string,
+    @Param('escuelaId', ParseUUIDPipe) escuelaId: string,
+  ) {
+    const { archivo, nombre } = await this.service.plantillaEscuela(eventoId, escuelaId);
+    return new StreamableFile(archivo, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="${nombre}"`,
+    });
+  }
+
+  // POST ...?dry=true (por defecto) solo valida; ?dry=false guarda. Multipart, campo "file".
+  @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.Admin)
+  @Post('admin/eventos/:eventoId/escuelas/:escuelaId/preinscritos')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  importarPreinscritos(
+    @Param('eventoId', ParseUUIDPipe) eventoId: string,
+    @Param('escuelaId', ParseUUIDPipe) escuelaId: string,
+    @UploadedFile() file: { originalname: string; buffer: Buffer } | undefined,
+    @Query('dry') dry?: string,
+  ) {
+    if (!file) throw new BadRequestException('Falta el archivo (campo "file").');
+    if (!/\.xlsx$/i.test(file.originalname)) throw new BadRequestException('El archivo debe ser .xlsx');
+    return this.service.importarPreinscritos(eventoId, escuelaId, file.buffer, dry !== 'false');
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.Admin)
+  @Get('admin/eventos/:eventoId/escuelas/:escuelaId/preinscritos')
+  listarPreinscritos(
+    @Param('eventoId', ParseUUIDPipe) eventoId: string,
+    @Param('escuelaId', ParseUUIDPipe) escuelaId: string,
+  ) {
+    return this.service.listarPreinscritos(eventoId, escuelaId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.Admin)
+  @Delete('admin/preinscritos/:asistenteId')
+  eliminarPreinscrito(@Param('asistenteId', ParseUUIDPipe) asistenteId: string) {
+    return this.service.eliminarPreinscrito(asistenteId);
+  }
 
   // ================= PÚBLICO: se entra con el token del enlace =================
 
@@ -99,6 +146,12 @@ listar() { return this.service.listar();
   @Get(':token/escuelas')
   escuelas(@Param('token') token: string) {
     return this.service.escuelasDisponibles(token);
+  }
+
+  // Paso 1 de escuelas: el estudiante preinscrito por su escuela confirma con su documento.
+  @Get(':token/escuela/:documento')
+  consultarEscuela(@Param('token') token: string, @Param('documento') documento: string) {
+    return this.service.consultarEscuela(token, documento);
   }
 
   @Post(':token/escuela')

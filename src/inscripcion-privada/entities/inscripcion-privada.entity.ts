@@ -30,7 +30,9 @@ export class EventoInscripcionPrivada {
   @Column({ name: 'cupo_por_escuela_defecto', type: 'int', default: 80 })
   cupoPorEscuelaDefecto: number;
 
-  // null = sin tope por persona (hoy no lo hay; se cambia desde el front)
+  // Escuelas: tope de boletas por persona (el estudiante + sus acompañantes).
+  // null = sin tope (decisión actual: el director distribuye las 80). Se valida al
+  // cargar el Excel del director.
   @Column({ name: 'tope_boletas_por_persona', type: 'int', nullable: true })
   topeBoletasPorPersona: number | null;
 

@@ -14,6 +14,17 @@ import { VerificarDocumentoResponseDto } from './dto/verificar-documento.dto';
 import * as QRCode from 'qrcode';
 import { MarcarIngresoDto } from './dto/marcar-ingreso.dto';
 
+export interface PersonaDelGrupo {
+  nombreCompleto: string;
+  documento: string;
+  ingresado?: boolean;
+}
+
+export type IngresoConGrupo = Omit<Asistente, 'titular' | 'acompanantes'> & {
+  titular: PersonaDelGrupo | null;
+  acompanantes: PersonaDelGrupo[];
+};
+
 @Injectable()
 export class AsistentesService {
   constructor(
@@ -72,6 +83,7 @@ export class AsistentesService {
       nombreCompleto,
       email,
       telefono,
+      comuna: dto.comuna?.trim() || null,
       qrToken: randomUUID(), // 👈 simple, sin firma
       ingresado: false,
     });
@@ -104,7 +116,10 @@ export class AsistentesService {
         where: { documento, evento: { id: eventoId } },
       });
       if (yaInscrito) {
-        const qrImagen = await QRCode.toDataURL(yaInscrito.qrToken, { errorCorrectionLevel: 'M', width: 300 });
+        // Preinscrito de escuela que todavía no confirmó: aún no tiene QR.
+        const qrImagen = yaInscrito.qrToken
+          ? await QRCode.toDataURL(yaInscrito.qrToken, { errorCorrectionLevel: 'M', width: 300 })
+          : undefined;
         return {
           encontrado: true,
           yaInscrito: true,
@@ -158,7 +173,7 @@ export class AsistentesService {
   async findByQrToken(qrToken: string): Promise<Asistente> {
     const asistente = await this.asistenteRepo.findOne({
       where: { qrToken },
-      relations: { estudiante: true, evento: true },
+      relations: { estudiante: true, evento: true, titular: true },
     });
     if (!asistente) throw new NotFoundException('El código QR no corresponde a ninguna inscripción.');
     return asistente;
@@ -166,18 +181,50 @@ export class AsistentesService {
 
   /** Idempotente: si ya estaba ingresado, no falla, solo devuelve el estado actual. */
  // asistentes.service.ts
-async marcarIngreso(dto: MarcarIngresoDto): Promise<Asistente> {
+async marcarIngreso(dto: MarcarIngresoDto): Promise<IngresoConGrupo> {
   const asistente = dto.qrToken
     ? await this.findByQrToken(dto.qrToken)
     : await this.findByDocumentoYEvento(dto.documento!, dto.eventoId!);
 
-  return this.confirmarIngreso(asistente, dto.fechaIngreso ? new Date(dto.fechaIngreso) : undefined);
+  // Preinscrito por su escuela (cargado desde el Excel del director) que nunca
+  // completó su inscripción: no tiene QR ni acompañantes, no puede entrar.
+  // Solo aplica a modalidad ESCUELA; el resto de inscripciones siempre tiene QR.
+  if (asistente.modalidad === 'ESCUELA' && !asistente.qrToken) {
+    throw new BadRequestException(
+      'El estudiante fue preseleccionado por su escuela pero no completó la inscripción.',
+    );
+  }
+
+  const confirmado = await this.confirmarIngreso(
+    asistente, dto.fechaIngreso ? new Date(dto.fechaIngreso) : undefined,
+  );
+  return this.conGrupo(confirmado);
+}
+
+// Agrega a la respuesta del ingreso quién viene con esta persona, para que el
+// escáner muestre al titular y sus acompañantes. Para cualquier inscripción
+// normal titular es null y acompanantes [], así que la respuesta solo crece.
+// Se proyectan campos mínimos: nunca el qrToken de los acompañantes.
+private async conGrupo(asistente: Asistente): Promise<IngresoConGrupo> {
+  const acompanantes = await this.asistenteRepo.find({
+    where: { titular: { id: asistente.id } },
+    select: { id: true, nombreCompleto: true, documento: true, ingresado: true },
+    order: { fechaInscripcion: 'ASC' },
+  });
+  const { titular, ...resto } = asistente;
+  return {
+    ...resto,
+    titular: titular ? { nombreCompleto: titular.nombreCompleto, documento: titular.documento } : null,
+    acompanantes: acompanantes.map((a) => ({
+      nombreCompleto: a.nombreCompleto, documento: a.documento, ingresado: a.ingresado,
+    })),
+  };
 }
 
 async findByDocumentoYEvento(documento: string, eventoId: string): Promise<Asistente> {
   const asistente = await this.asistenteRepo.findOne({
     where: { documento, evento: { id: eventoId } },
-    relations: { estudiante: true, evento: true },
+    relations: { estudiante: true, evento: true, titular: true },
   });
   if (!asistente) {
     throw new NotFoundException('No se encontró una inscripción con ese documento para este evento.');

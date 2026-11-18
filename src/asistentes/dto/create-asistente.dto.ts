@@ -27,6 +27,10 @@ export class InscribirAsistenteDto {
 
   @IsString() @IsOptional() @MaxLength(20)
   telefono?: string;
+
+  // Opcional en el API para no romper clientes viejos; el formulario la exige.
+  @IsString() @IsOptional() @MaxLength(100)
+  comuna?: string;
 }
 
 

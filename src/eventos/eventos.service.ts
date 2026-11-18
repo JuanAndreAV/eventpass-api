@@ -115,15 +115,23 @@ export class EventosService {
   return evento;
 }
 //para ver eventos activos teniendo en cuenta la fecha de inicio y el estado activo
-async findActivos(): Promise<Evento[]> {
+// incluirOcultos: el escáner necesita ver también los eventos privados
+// (visible = false), que no deben aparecer en el listado público. Todos los
+// eventos anteriores tienen visible = true por defecto, así que el listado
+// público no cambia para ellos.
+async findActivos(incluirOcultos = false): Promise<Evento[]> {
   const limiteHaceUnaHora = new Date(Date.now() - 60 * 60 * 1000); // Fecha/Hora actual menos 1 hora (en ms)
 
-  return this.eventoRepository
+  const query = this.eventoRepository
     .createQueryBuilder('evento')
     .where('evento.activo = :activo', { activo: true })
     .andWhere('evento.fechaInicio >= :limiteHaceUnaHora', { limiteHaceUnaHora })
-    .andWhere('evento.tipo != :tipo', { tipo: TipoEvento.ASISTENCIA_ESCOLAR })
-    .orderBy('evento.fechaInicio', 'ASC')
-    .getMany();
+    .andWhere('evento.tipo != :tipo', { tipo: TipoEvento.ASISTENCIA_ESCOLAR });
+
+  if (!incluirOcultos) {
+    query.andWhere('evento.visible = :visible', { visible: true });
+  }
+
+  return query.orderBy('evento.fechaInicio', 'ASC').getMany();
 }
 }

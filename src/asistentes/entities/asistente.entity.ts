@@ -129,6 +129,16 @@ modalidad: 'ESCUELA' | 'AGRUPACION' | null;
 @JoinColumn({ name: 'escuela_id' })
 escuelaRel: Escuela | null;
 
+  // Acompañantes (Concierto 30 años): cada uno es un asistente con su propio
+  // documento y QR; titular apunta al estudiante que lo inscribió. null para
+  // todas las inscripciones normales.
+  @ManyToOne(() => Asistente, (a) => a.acompanantes, { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'titular_id' })
+  titular: Asistente | null;
+
+  @OneToMany(() => Asistente, (a) => a.titular)
+  acompanantes: Asistente[];
+
   @CreateDateColumn({ type: 'timestamptz' })
   fechaInscripcion: Date;
 
