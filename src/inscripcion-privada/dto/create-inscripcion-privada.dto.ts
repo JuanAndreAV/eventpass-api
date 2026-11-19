@@ -1,6 +1,6 @@
 import {
   ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString,
-  Matches, MaxLength, Min, ValidateNested,
+  Matches, Max, MaxLength, Min, ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -44,11 +44,12 @@ export class InscribirAgrupacionDto {
   @IsOptional() @IsEmail() @MaxLength(150)
   correo?: string;
 
-  @IsString() @IsNotEmpty() @MaxLength(100)
-  comuna: string;
+  // El músico ya está en la BD y no recibe boleta: la comuna se pide a cada acompañante
+  @IsOptional() @IsString() @MaxLength(100)
+  comuna?: string;
 
-  // Fijo: boletasPorParticipante - 1 (hoy 1, el acudiente). Lo valida el servicio.
-  @IsArray() @ArrayMaxSize(10) @ValidateNested({ each: true }) @Type(() => AcompananteDto)
+  // Entre 1 y boletasPorParticipante (configurable, por defecto 3). Lo valida el servicio.
+  @IsArray() @ArrayMaxSize(20) @ValidateNested({ each: true }) @Type(() => AcompananteDto)
   acompanantes: AcompananteDto[];
 }
 
@@ -62,7 +63,8 @@ export class CrearConfiguracionDto {
   @IsOptional() @IsInt() @Min(1)
   topeBoletasPorPersona?: number | null;
 
-  @IsOptional() @IsInt() @Min(1)
+  // Agrupaciones: acompañantes (boletas) que registra cada músico; él no usa boleta
+  @IsOptional() @IsInt() @Min(1) @Max(20)
   boletasPorParticipante?: number;
 
   @IsOptional() @IsBoolean()

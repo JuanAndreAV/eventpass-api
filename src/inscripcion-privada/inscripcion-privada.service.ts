@@ -43,13 +43,12 @@ export interface InscripcionPrivadaView {
 }
 
 
-// Techo técnico de acompañantes por estudiante; coincide con @ArrayMaxSize del DTO
-const MAX_ACOMPANANTES_TECNICO = 50;
+// Acompañantes que registra cada músico de agrupación si no se configura otro valor
+const ACOMPANANTES_AGRUPACION_DEFECTO = 3;
 
 // ---------- Plantilla de preinscritos (Excel del director) ----------
 const COLUMNAS_PLANTILLA = [
   'Tipo de documento', 'Número de documento', 'Nombres', 'Apellidos', 'Correo', 'Teléfono',
-  'Cantidad de acompañantes',
 ];
 const TIPOS_DOCUMENTO_PLANTILLA = ['CC', 'TI', 'RC', 'CE', 'PASAPORTE', 'NUIP', 'PPT'];
 const TIPO_DOC_PLANTILLA: Record<string, string> = {
@@ -250,9 +249,9 @@ export class InscripcionPrivadaService {
       yaInscrito,
       nombre: enmascarar(`${estudiante.nombres} ${estudiante.apellidos}`),
       agrupaciones: relaciones.map((r) => r.agrupacion.nombre),
+      // El músico no usa boleta (entra con su agrupación): todas son para sus acompañantes
       boletas: cfg.boletasPorParticipante,
-      // Lógica fija: el participante usa una boleta y registra a los demás (hoy, su acudiente)
-      acompanantes: Math.max(0, cfg.boletasPorParticipante - 1),
+      acompanantes: cfg.boletasPorParticipante,
     };
   }
 
@@ -268,10 +267,10 @@ export class InscripcionPrivadaService {
       throw new NotFoundException('No encontramos ese documento en las agrupaciones integradas.');
     }
 
-    const esperados = Math.max(0, cfg.boletasPorParticipante - 1);
-    if (dto.acompanantes.length !== esperados) {
+    const max = cfg.boletasPorParticipante;
+    if (dto.acompanantes.length < 1 || dto.acompanantes.length > max) {
       throw new BadRequestException(
-        `Debes registrar ${esperados} acompañante${esperados === 1 ? '' : 's'}.`,
+        `Registra entre 1 y ${max} acompañante${max === 1 ? '' : 's'}.`,
       );
     }
     this.validarAcompanantes(estudiante.documento, dto.acompanantes);
@@ -295,10 +294,12 @@ export class InscripcionPrivadaService {
             documento: estudiante.documento,
             email: dto.correo?.trim() || estudiante.email || null,
             telefono: estudiante.telefono ?? null,
-            comuna: dto.comuna.trim(),
+            comuna: dto.comuna?.trim() || null,
             cantidadBoletas: 1,
             boletasIngresadas: 0,
-            qrToken: randomUUID(),
+            // Sin QR: el músico entra con su agrupación. Esta fila solo agrupa a sus
+            // acompañantes y evita que se inscriba dos veces.
+            qrToken: null as unknown as string,
             ingresado: false,
           }),
         );
@@ -389,12 +390,14 @@ export class InscripcionPrivadaService {
       correo: titular.email ?? null,
       modalidad: titular.modalidad as 'ESCUELA' | 'AGRUPACION',
       escuela,
-      cantidadBoletas: 1 + acompanantes.length,
+      cantidadBoletas: (titular.qrToken ? 1 : 0) + acompanantes.length,
       evento: { nombre: evento.nombre, lugar: evento.lugar, fechaInicio: evento.fechaInicio },
       entradas: await Promise.all([
-        qr(titular.qrToken).then((qrImagen) => ({
-          nombre: titular.nombreCompleto, documento: titular.documento, rol: 'TITULAR' as const, qrImagen,
-        })),
+        ...(titular.qrToken
+          ? [qr(titular.qrToken).then((qrImagen) => ({
+              nombre: titular.nombreCompleto, documento: titular.documento, rol: 'TITULAR' as const, qrImagen,
+            }))]
+          : []),
         ...acompanantes.map((a) =>
           qr(a.qrToken).then((qrImagen) => ({
             nombre: a.nombreCompleto, documento: a.documento, rol: 'ACOMPANANTE' as const, qrImagen,
@@ -449,6 +452,7 @@ async crearEventoPrivado(dto: CrearEventoPrivadoDto) {
         token: this.nuevoToken(),
         ...config,
         topeBoletasPorPersona: config.topeBoletasPorPersona ?? null,
+        boletasPorParticipante: config.boletasPorParticipante ?? ACOMPANANTES_AGRUPACION_DEFECTO,
       }),
     );
 
@@ -522,6 +526,7 @@ async sincronizarCupos(eventoId: string) {
         token: this.nuevoToken(),
         ...dto,
         topeBoletasPorPersona: dto.topeBoletasPorPersona ?? null,
+        boletasPorParticipante: dto.boletasPorParticipante ?? ACOMPANANTES_AGRUPACION_DEFECTO,
       }),
     );
 
@@ -552,9 +557,11 @@ async sincronizarCupos(eventoId: string) {
       .createQueryBuilder('a')
       .select('a.modalidad', 'modalidad')
       .addSelect('COUNT(*) FILTER (WHERE a.titular_id IS NULL)', 'inscripciones')
-      .addSelect('COUNT(*)', 'boletas')
+      .addSelect('COUNT(*) FILTER (WHERE a.qrToken IS NOT NULL)', 'boletas')
       .addSelect('COUNT(*) FILTER (WHERE a.ingresado)', 'ingresadas')
-      .where('a.evento_id = :eventoId AND a.qrToken IS NOT NULL', { eventoId })
+      // Incluye al músico de agrupación (sin QR, con acompañantes) pero no al
+      // preinscrito de escuela que aún no confirma
+      .where("a.evento_id = :eventoId AND (a.qrToken IS NOT NULL OR a.modalidad = 'AGRUPACION')", { eventoId })
       .groupBy('a.modalidad')
       .getRawMany<{ modalidad: string | null; inscripciones: string; boletas: string; ingresadas: string }>();
 
@@ -638,29 +645,24 @@ async sincronizarCupos(eventoId: string) {
     if (!escuela) throw new NotFoundException('Escuela no encontrada');
     const cupo = await this.cupoRepo.findOne({ where: { evento: { id: eventoId }, escuela: { id: escuelaId } } });
     const boletas = cupo?.cupo ?? cfg.cupoPorEscuelaDefecto;
-    const tope = cfg.topeBoletasPorPersona;
 
     const wb = XLSX.utils.book_new();
     const hoja = XLSX.utils.aoa_to_sheet([COLUMNAS_PLANTILLA]);
-    hoja['!cols'] = [{ wch: 18 }, { wch: 22 }, { wch: 28 }, { wch: 28 }, { wch: 32 }, { wch: 16 }, { wch: 24 }];
-    XLSX.utils.book_append_sheet(wb, hoja, 'Estudiantes');
+    hoja['!cols'] = [{ wch: 18 }, { wch: 22 }, { wch: 28 }, { wch: 28 }, { wch: 32 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(wb, hoja, 'Asistentes');
 
     const instrucciones = XLSX.utils.aoa_to_sheet([
       [cfg.evento.nombre],
       [`Escuela: ${escuela.nombre}`],
-      [`Boletas de la escuela: ${boletas}. Cada estudiante usa una y cada acompañante otra.`],
-      [`La suma de estudiantes + acompañantes de este archivo no puede pasar de ${boletas}.`],
-      [tope === null
-        ? 'No hay tope por persona: el director decide cuántos acompañantes asigna a cada estudiante.'
-        : `Tope por persona: ${tope} boletas (el estudiante y hasta ${tope - 1} acompañantes).`],
+      [`Boletas de la escuela: ${boletas}. Cada persona del listado usa una boleta.`],
+      [`El listado no puede tener más de ${boletas} personas.`],
       [],
       ['Instrucciones'],
-      ['1. Relacione en la hoja "Estudiantes" a los estudiantes seleccionados, uno por fila, sin cambiar los encabezados.'],
+      ['1. Relacione en la hoja "Asistentes" a cada persona que asistirá (estudiantes, familiares u otros invitados), una por fila, sin cambiar los encabezados.'],
       [`2. Tipo de documento: ${TIPOS_DOCUMENTO_PLANTILLA.join(', ')}.`],
-      ['3. El número de documento va sin puntos ni espacios. Es con el que el estudiante completará su inscripción.'],
+      ['3. El número de documento va sin puntos ni espacios. Es con el que cada persona completará su inscripción.'],
       ['   Si un documento empieza por 0, escríbalo con un apóstrofo al inicio (por ejemplo \'0123456) para que Excel no borre el cero.'],
-      ['4. En "Cantidad de acompañantes" escriba cuántos acompañantes le asigna a cada estudiante (0 si viene solo).'],
-      ['5. Cada estudiante completa su inscripción con su documento en el enlace del evento y allí registra el nombre y documento de sus acompañantes.'],
+      ['4. Cada persona completa su inscripción con su documento en el enlace del evento, indica su comuna y descarga su código QR.'],
     ]);
     instrucciones['!cols'] = [{ wch: 110 }];
     XLSX.utils.book_append_sheet(wb, instrucciones, 'Instrucciones');
@@ -681,7 +683,7 @@ async sincronizarCupos(eventoId: string) {
     } catch {
       throw new BadRequestException('No se pudo leer el archivo. Debe ser un Excel (.xlsx).');
     }
-    const nombreHoja = wb.SheetNames.find((n) => norm(n) === 'ESTUDIANTES') ?? wb.SheetNames[0];
+    const nombreHoja = wb.SheetNames.find((n) => ['ASISTENTES', 'ESTUDIANTES'].includes(norm(n))) ?? wb.SheetNames[0];
     if (!nombreHoja) throw new BadRequestException('El Excel no tiene hojas.');
     const filas = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[nombreHoja], { header: 1, defval: '' });
 
@@ -698,11 +700,7 @@ async sincronizarCupos(eventoId: string) {
     const iApe = col((h) => h.startsWith('APELLIDO'));
     const iCorreo = col((h) => h.includes('CORREO') || h.includes('EMAIL'));
     const iTel = col((h) => h.includes('TELEFONO') || h.includes('CELULAR'));
-    const iAcomp = col((h) => h.includes('ACOMPA'));
-    if (iAcomp < 0) {
-      throw new BadRequestException('Falta la columna "Cantidad de acompañantes". Usa la plantilla sin cambiar los encabezados.');
-    }
-    const cfg = await this.cfgPorEvento(eventoId);
+    await this.cfgPorEvento(eventoId); // valida que el evento tenga inscripción privada
     if (iNom < 0 || iApe < 0) {
       throw new BadRequestException('Faltan las columnas "Nombres" y/o "Apellidos". Usa la plantilla sin cambiar los encabezados.');
     }
@@ -735,16 +733,6 @@ async sincronizarCupos(eventoId: string) {
         errores.push({ fila, documento, motivo: `Correo no válido: ${correo}` });
         return;
       }
-      const acompRaw = celda(f, iAcomp);
-      const acompanantes = acompRaw === '' ? 0 : Number(acompRaw);
-      if (!Number.isInteger(acompanantes) || acompanantes < 0 || acompanantes > MAX_ACOMPANANTES_TECNICO) {
-        errores.push({ fila, documento, motivo: `Cantidad de acompañantes no válida: "${acompRaw}" (número entero, 0 si viene solo).` });
-        return;
-      }
-      if (cfg.topeBoletasPorPersona !== null && 1 + acompanantes > cfg.topeBoletasPorPersona) {
-        errores.push({ fila, documento, motivo: `Supera el tope por persona: máximo ${cfg.topeBoletasPorPersona - 1} acompañantes.` });
-        return;
-      }
       const clave = documento.toUpperCase();
       if (vistos.has(clave)) {
         errores.push({ fila, documento, motivo: 'Documento repetido en el archivo.' });
@@ -758,7 +746,7 @@ async sincronizarCupos(eventoId: string) {
         nombreCompleto: `${nombres} ${apellidos}`.replace(/\s+/g, ' ').slice(0, 255),
         email: correo ? correo.slice(0, 150) : null,
         telefono: celda(f, iTel).replace(/[^\d+]/g, '').slice(0, 20) || null,
-        boletas: 1 + acompanantes,
+        boletas: 1, // cada persona del listado = una boleta, sin acompañantes
       });
     });
 

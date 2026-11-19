@@ -36,7 +36,8 @@ export class EventoInscripcionPrivada {
   @Column({ name: 'tope_boletas_por_persona', type: 'int', nullable: true })
   topeBoletasPorPersona: number | null;
 
-  // Agrupaciones integradas: boletas por participante en escena
+  // Agrupaciones integradas: boletas que cada músico reparte entre sus acompañantes
+  // (él entra con su agrupación y no usa boleta). El servicio crea con 3.
   @Column({ name: 'boletas_por_participante', type: 'int', default: 2 })
   boletasPorParticipante: number;
 

@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import { Asistente, TipoAsistente } from './entities/asistente.entity';
 import { Evento } from '../eventos/entities/evento.entity';
 import { Estudiante } from '../estudiantes/entities/estudiante.entity';
+import { EquipoInterno } from '../equipo-interno/entities/equipo-interno.entity';
 import { InscribirAsistenteDto } from './dto/create-asistente.dto';
 import { VerificarDocumentoResponseDto } from './dto/verificar-documento.dto';
 import * as QRCode from 'qrcode';
@@ -34,6 +35,8 @@ export class AsistentesService {
     private readonly eventoRepo: Repository<Evento>,
     @InjectRepository(Estudiante)
     private readonly estudianteRepo: Repository<Estudiante>,
+    @InjectRepository(EquipoInterno)
+    private readonly equipoRepo: Repository<EquipoInterno>,
   ) {}
 
   async inscribir(dto: InscribirAsistenteDto): Promise<{ asistente: Asistente; qrImagen: string }> {
@@ -69,7 +72,19 @@ export class AsistentesService {
       nombreCompleto = `${encontrado.nombres} ${encontrado.apellidos}`;
       email = encontrado.email;
       telefono = encontrado.telefono;
-    } else if (!documento || !nombreCompleto || !email) {
+    } else if (!nombreCompleto) {
+      // Ya registrado en el sistema (equipo interno o inscrito a otro evento):
+      // el formulario solo pide la comuna y los datos se toman de aquí.
+      const conocido = documento ? await this.datosConocidos(documento) : null;
+      if (!conocido) {
+        throw new BadRequestException(
+          'documento, nombreCompleto y email son requeridos para asistentes RED o EXTERNO.',
+        );
+      }
+      nombreCompleto = conocido.nombreCompleto;
+      email = email || conocido.email || undefined;
+      telefono = telefono || conocido.telefono || undefined;
+    } else if (!documento || !email) {
       throw new BadRequestException(
         'documento, nombreCompleto y email son requeridos para asistentes RED o EXTERNO.',
       );
@@ -139,8 +154,13 @@ export class AsistentesService {
       };
     }
 
+    const equipo = await this.equipoRepo.findOneBy({ documento, activo: true });
+    if (equipo) {
+      return { encontrado: true, tipo: TipoAsistente.RED };
+    }
+
     const asistentePrevio = await this.asistenteRepo.findOne({
-      where: { documento },
+      where: { documento, qrToken: Not(IsNull()) },
       order: { fechaInscripcion: 'DESC' },
     });
     if (asistentePrevio) {
@@ -151,6 +171,19 @@ export class AsistentesService {
     }
 
     return { encontrado: false };
+  }
+
+  // Datos de alguien que ya está en el sistema, para no volver a pedírselos.
+  private async datosConocidos(
+    documento: string,
+  ): Promise<{ nombreCompleto: string; email: string | null; telefono: string | null } | null> {
+    const equipo = await this.equipoRepo.findOneBy({ documento, activo: true });
+    if (equipo) return equipo;
+    const previo = await this.asistenteRepo.findOne({
+      where: { documento, qrToken: Not(IsNull()) },
+      order: { fechaInscripcion: 'DESC' },
+    });
+    return previo ?? null;
   }
 
   findByEvento(eventoId: string): Promise<Asistente[]> {
@@ -186,12 +219,13 @@ async marcarIngreso(dto: MarcarIngresoDto): Promise<IngresoConGrupo> {
     ? await this.findByQrToken(dto.qrToken)
     : await this.findByDocumentoYEvento(dto.documento!, dto.eventoId!);
 
-  // Preinscrito por su escuela (cargado desde el Excel del director) que nunca
-  // completó su inscripción: no tiene QR ni acompañantes, no puede entrar.
-  // Solo aplica a modalidad ESCUELA; el resto de inscripciones siempre tiene QR.
-  if (asistente.modalidad === 'ESCUELA' && !asistente.qrToken) {
+  // Sin QR no hay boleta: preinscrito de escuela que no completó su inscripción,
+  // o estudiante de agrupación (entra como músico; solo sus acompañantes tienen boleta).
+  if (!asistente.qrToken) {
     throw new BadRequestException(
-      'El estudiante fue preseleccionado por su escuela pero no completó la inscripción.',
+      asistente.modalidad === 'AGRUPACION'
+        ? 'Es músico de agrupación: no tiene boleta de público. Solo sus acompañantes ingresan con QR.'
+        : 'Fue preseleccionado por su escuela pero no completó la inscripción.',
     );
   }
 
