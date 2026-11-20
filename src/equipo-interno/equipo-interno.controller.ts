@@ -1,6 +1,6 @@
 // equipo-interno/equipo-interno.controller.ts
 import {
-  Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards,
+  Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards,
 } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -22,6 +22,12 @@ export class EquipoInternoController {
     return this.equipoInternoService.findAll();
   }
 
+  // Debe ir antes de ':id' para que no se interprete como un UUID
+  @Get('catalogos')
+  catalogos() {
+    return this.equipoInternoService.catalogos();
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.equipoInternoService.findOne(id);
@@ -35,5 +41,10 @@ export class EquipoInternoController {
   @Patch(':id')
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateEquipoInternoDto) {
     return this.equipoInternoService.update(id, dto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.equipoInternoService.remove(id);
   }
 }

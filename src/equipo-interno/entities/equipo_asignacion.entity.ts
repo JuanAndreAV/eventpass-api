@@ -10,8 +10,10 @@ import {
 import { EquipoInterno } from './equipo-interno.entity';
 import { Escuela } from '../../escuelas/entities/escuela.entity';
 import { Cargo } from './cargo.entity';
+import { AgrupacionIntegrada } from '../../agrupacion-integrada/entities/agrupacion-integrada.entity';
 
-// El índice único (persona_id, cargo_id, escuela_id) NULLS NOT DISTINCT
+// El índice único (persona_id, cargo_id, escuela_id, agrupacion_id) NULLS NOT DISTINCT
+// y el CHECK de "a lo sumo un lugar"
 // vive solo en la migración: TypeORM no lo soporta por decorador.
 @Entity('equipo_asignaciones')
 export class EquipoAsignacion {
@@ -33,6 +35,12 @@ export class EquipoAsignacion {
   @ManyToOne(() => Escuela, { nullable: true })
   @JoinColumn({ name: 'escuela_id' })
   escuela: Escuela | null;
+
+  // Directores, apoyos y formadores de agrupaciones integradas.
+  // Excluyente con escuela (CHECK chk_equipo_asignacion_un_lugar).
+  @ManyToOne(() => AgrupacionIntegrada, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'agrupacion_id' })
+  agrupacion: AgrupacionIntegrada | null;
 
   // bronces, maderas, MUTAR, vientos (asistencial)...
   @Column({ type: 'varchar', nullable: true })

@@ -17,6 +17,12 @@ export enum EstadoDatosPersona {
   PENDIENTE = 'PENDIENTE',
 }
 
+// Valores permitidos por el CHECK chk_equipo_tipo_contrato
+export enum TipoContrato {
+  LABORAL = 'LABORAL',
+  PRESTACION_SERVICIOS = 'PRESTACION_SERVICIOS',
+}
+
 @Entity('equipo_interno_personas')
 export class EquipoInterno {
   @PrimaryGeneratedColumn('uuid')
@@ -59,10 +65,10 @@ export class EquipoInterno {
   usuario?: Usuario | null;
 
   @Column({ name: 'tipo_contrato', type: 'varchar', nullable: true })
-tipoContrato: 'LABORAL' | 'PRESTACION_SERVICIOS' | null;
+  tipoContrato: TipoContrato | null;
 
-@OneToMany(() => EquipoAsignacion, (a) => a.persona)
-asignaciones: EquipoAsignacion[];
+  @OneToMany(() => EquipoAsignacion, (a) => a.persona)
+  asignaciones: EquipoAsignacion[];
 
   @CreateDateColumn({ type: 'timestamptz', name: 'creado_en' })
   creadoEn: Date;
