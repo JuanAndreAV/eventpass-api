@@ -4,10 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { Estudiante } from './entities/estudiante.entity';
 import { Escuela } from '../escuelas/entities/escuela.entity';
+import { EstudianteAgrupacion } from '../agrupacion-integrada/entities/estudiante-agrupacion.entity';
+import { EquipoAsignacion } from '../equipo-interno/entities/equipo_asignacion.entity';
+import { Asistente } from '../asistentes/entities/asistente.entity';
+import { ListarEstudiantesDto } from './dto/listar-estudiantes.dto';
 import { CreateEstudianteDto } from './dto/create-estudiante.dto';
 import { UpdateEstudianteDto } from './dto/update-estudiante.dto';
 import {
@@ -21,6 +25,12 @@ export class EstudiantesService {
     private readonly estudianteRepository: Repository<Estudiante>,
     @InjectRepository(Escuela)
     private readonly escuelaRepository: Repository<Escuela>,
+    @InjectRepository(EstudianteAgrupacion)
+    private readonly estAgrRepository: Repository<EstudianteAgrupacion>,
+    @InjectRepository(EquipoAsignacion)
+    private readonly asignacionRepository: Repository<EquipoAsignacion>,
+    @InjectRepository(Asistente)
+    private readonly asistenteRepository: Repository<Asistente>,
   ) {}
 
   async create(dto: CreateEstudianteDto): Promise<Estudiante> {
@@ -63,6 +73,166 @@ export class EstudiantesService {
     return estudiante;
   }
 
+  // ---------- Gestión de estudiantes (panel admin) ----------
+
+  async listarGestion(filtros: ListarEstudiantesDto) {
+    const page = filtros.page ?? 1;
+    const limit = filtros.limit ?? 25;
+
+    const qb = this.estudianteRepository
+      .createQueryBuilder('e')
+      .leftJoinAndSelect('e.escuela', 'esc')
+      .orderBy('e.apellidos', 'ASC')
+      .addOrderBy('e.nombres', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const texto = filtros.q?.trim();
+    if (texto) {
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where(`(e.nombres || ' ' || e.apellidos) ILIKE :texto`, { texto: `%${texto}%` })
+            .orWhere('e.documento ILIKE :doc', { doc: `${texto}%` });
+        }),
+      );
+    }
+
+    if (filtros.escuelaId) {
+      qb.andWhere('esc.id = :escuelaId', { escuelaId: filtros.escuelaId });
+    }
+
+    // Solo cuentan las membresías activas
+    const existeMembresia = `EXISTS (
+      SELECT 1 FROM estudiantes_agrupacion ea
+      WHERE ea.estudiante_id = e.id AND ea.activo = true
+      %s
+    )`;
+    if (filtros.agrupacionId) {
+      qb.andWhere(existeMembresia.replace('%s', 'AND ea.agrupacion_id = :agrupacionId'), {
+        agrupacionId: filtros.agrupacionId,
+      });
+    } else if (filtros.enAgrupacion === 'con') {
+      qb.andWhere(existeMembresia.replace('%s', ''));
+    } else if (filtros.enAgrupacion === 'sin') {
+      qb.andWhere(`NOT ${existeMembresia.replace('%s', '')}`);
+    }
+
+    const [estudiantes, total] = await qb.getManyAndCount();
+
+    const ids = estudiantes.map((e) => e.id);
+    const membresias = ids.length
+      ? await this.estAgrRepository.find({
+          where: { estudianteId: In(ids), activo: true },
+          relations: { agrupacion: true },
+        })
+      : [];
+
+    const porEstudiante = new Map<string, { id: string; nombre: string }[]>();
+    for (const m of membresias) {
+      const lista = porEstudiante.get(m.estudianteId) ?? [];
+      lista.push({ id: m.agrupacion.id, nombre: m.agrupacion.nombre });
+      porEstudiante.set(m.estudianteId, lista);
+    }
+
+    return {
+      items: estudiantes.map((e) => ({
+        ...this.aVistaGestion(e),
+        agrupaciones: porEstudiante.get(e.id) ?? [],
+      })),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async detalle(id: string) {
+    const estudiante = await this.findOne(id);
+
+    // Todas las membresías (también las inactivas, para ver el historial)
+    const membresias = await this.estAgrRepository.find({
+      where: { estudianteId: id },
+      relations: { agrupacion: true },
+      order: { activo: 'DESC', creadoEn: 'ASC' },
+    });
+    const agrupacionIds = membresias.map((m) => m.agrupacionId);
+
+    const [integrantes, equipo, totalInscripciones] = await Promise.all([
+      agrupacionIds.length
+        ? this.estAgrRepository
+            .createQueryBuilder('ea')
+            .select('ea.agrupacion_id', 'agrupacionId')
+            .addSelect('COUNT(*)::int', 'total')
+            .where('ea.agrupacion_id IN (:...agrupacionIds)', { agrupacionIds })
+            .andWhere('ea.activo = true')
+            .groupBy('ea.agrupacion_id')
+            .getRawMany<{ agrupacionId: string; total: number }>()
+        : Promise.resolve([]),
+      agrupacionIds.length
+        ? this.asignacionRepository.find({
+            where: { agrupacion: { id: In(agrupacionIds) }, activo: true, persona: { activo: true } },
+            relations: { persona: true, cargo: true, agrupacion: true },
+          })
+        : Promise.resolve([] as EquipoAsignacion[]),
+      this.asistenteRepository.count({ where: { estudiante: { id } } }),
+    ]);
+
+    const totalPorAgrupacion = new Map(integrantes.map((r) => [r.agrupacionId, Number(r.total)]));
+
+    return {
+      ...this.aVistaGestion(estudiante),
+      escuela: {
+        id: estudiante.escuela.id,
+        nombre: estudiante.escuela.nombre,
+        codigo: estudiante.escuela.codigo,
+        direccion: estudiante.escuela.direccion ?? null,
+        telefono: estudiante.escuela.telefono ?? null,
+        email: estudiante.escuela.email ?? null,
+        activa: estudiante.escuela.activa,
+      },
+      tieneUsuario: !!estudiante.usuario,
+      totalInscripciones,
+      agrupaciones: membresias.map((m) => ({
+        id: m.agrupacion.id,
+        nombre: m.agrupacion.nombre,
+        descripcion: m.agrupacion.descripcion ?? null,
+        activa: m.agrupacion.activa,
+        membresiaActiva: m.activo,
+        vinculadoDesde: m.creadoEn,
+        totalIntegrantes: totalPorAgrupacion.get(m.agrupacionId) ?? 0,
+        equipo: equipo
+          .filter((a) => a.agrupacion?.id === m.agrupacionId)
+          .map((a) => ({
+            nombre: a.persona.nombreCompleto,
+            cargo: a.cargo.nombre,
+            detalle: a.detalle,
+            email: a.persona.email,
+            telefono: a.persona.telefono,
+          })),
+      })),
+    };
+  }
+
+  // No expone qrTokenMaster: es la credencial del carnet
+  private aVistaGestion(e: Estudiante) {
+    return {
+      id: e.id,
+      tipoDocumento: e.tipoDocumento,
+      documento: e.documento,
+      nombres: e.nombres,
+      apellidos: e.apellidos,
+      email: e.email ?? null,
+      telefono: e.telefono ?? null,
+      fechaNacimiento: e.fechaNacimiento ?? null,
+      direccion: e.direccion ?? null,
+      instrumento: e.instrumento ?? null,
+      fotoUrl: e.fotoUrl ?? null,
+      tieneNfc: !!e.nfcUid,
+      escuela: e.escuela ? { id: e.escuela.id, nombre: e.escuela.nombre, codigo: e.escuela.codigo } : null,
+      creadoEn: e.creadoEn,
+      actualizadoEn: e.actualizadoEn,
+    };
+  }
+
   /**
    * Núcleo del caso de uso principal: el vigilante escanea NFC/QR o digita el documento
    * y el sistema debe encontrar al estudiante y devolver su foto para verificación visual.
@@ -91,6 +261,7 @@ export class EstudiantesService {
     const { usuarioId, ...datos } = dto;
     const estudiante = await this.findOne(id);
 
+    // null en un campo opcional = vaciarlo (el panel de gestión lo usa así)
     Object.assign(estudiante, datos);
 
     if (usuarioId !== undefined) {

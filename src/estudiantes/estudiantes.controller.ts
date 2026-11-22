@@ -1,7 +1,8 @@
 // estudiantes.controller.ts
 import {
-  Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UnauthorizedException, UseGuards,
+  Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, UnauthorizedException, UseGuards,
 } from '@nestjs/common';
+import { ListarEstudiantesDto } from './dto/listar-estudiantes.dto';
 import type { Request } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -28,6 +29,19 @@ export class EstudiantesController {
   @Get()
   findAll(@Query('escuelaId') escuelaId?: string) {
     return this.estudiantesService.findAll(escuelaId);
+  }
+
+  // Gestión de estudiantes (panel admin). Debe ir antes de @Get(':id').
+  @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.Admin)
+  @Get('gestion')
+  listarGestion(@Query() filtros: ListarEstudiantesDto) {
+    return this.estudiantesService.listarGestion(filtros);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.Admin)
+  @Get(':id/detalle')
+  detalle(@Param('id', ParseUUIDPipe) id: string) {
+    return this.estudiantesService.detalle(id);
   }
 
   @UseGuards(JwtAuthGuard)
