@@ -46,6 +46,16 @@ export interface InscripcionPrivadaView {
 // Acompañantes que registra cada músico de agrupación si no se configura otro valor
 const ACOMPANANTES_AGRUPACION_DEFECTO = 3;
 
+// Concierto 30 años: los listados de estudiantes_agrupacion no están actualizados,
+// así que por ahora basta con que el documento exista en la tabla general de
+// estudiantes. La lógica de boletas y acompañantes no cambia.
+// Para un evento que sí deba exigir pertenecer a una agrupación integrada, poner true.
+const VALIDAR_MEMBRESIA_AGRUPACION = false;
+
+// Lo que ve el asistente en "Agrupación:" cuando el estudiante no tiene una
+// agrupación registrada (solo pasa con VALIDAR_MEMBRESIA_AGRUPACION = false).
+const AGRUPACION_SIN_REGISTRO = 'Agrupaciones integradas';
+
 // ---------- Plantilla de preinscritos (Excel del director) ----------
 const COLUMNAS_PLANTILLA = [
   'Tipo de documento', 'Número de documento', 'Nombres', 'Apellidos', 'Correo', 'Teléfono',
@@ -236,9 +246,9 @@ export class InscripcionPrivadaService {
       throw new BadRequestException('La inscripción de agrupaciones integradas no está habilitada.');
     }
 
-    const estudiante = await this.estudianteRepo.findOneBy({ documento: documento.trim() });
-    const relaciones = estudiante ? await this.agrupacionesActivas(estudiante.id) : [];
-    if (!estudiante || relaciones.length === 0) return { encontrado: false };
+    const participante = await this.participanteAgrupacion(documento);
+    if (!participante) return { encontrado: false };
+    const { estudiante, agrupaciones } = participante;
 
     const yaInscrito = await this.asistenteRepo.exists({
       where: { evento: { id: cfg.evento.id }, documento: estudiante.documento },
@@ -248,7 +258,7 @@ export class InscripcionPrivadaService {
       encontrado: true,
       yaInscrito,
       nombre: enmascarar(`${estudiante.nombres} ${estudiante.apellidos}`),
-      agrupaciones: relaciones.map((r) => r.agrupacion.nombre),
+      agrupaciones,
       // El músico no usa boleta (entra con su agrupación): todas son para sus acompañantes
       boletas: cfg.boletasPorParticipante,
       acompanantes: cfg.boletasPorParticipante,
@@ -261,11 +271,12 @@ export class InscripcionPrivadaService {
       throw new BadRequestException('La inscripción de agrupaciones integradas no está habilitada.');
     }
 
-    const estudiante = await this.estudianteRepo.findOneBy({ documento: dto.documento.trim() });
-    const relaciones = estudiante ? await this.agrupacionesActivas(estudiante.id) : [];
-    if (!estudiante || relaciones.length === 0) {
+    const participante = await this.participanteAgrupacion(dto.documento);
+    if (!participante) {
+      // Mismo texto que muestra el front, aunque hoy se valide contra la tabla de estudiantes
       throw new NotFoundException('No encontramos ese documento en las agrupaciones integradas.');
     }
+    const { estudiante } = participante;
 
     const max = cfg.boletasPorParticipante;
     if (dto.acompanantes.length < 1 || dto.acompanantes.length > max) {
@@ -311,6 +322,24 @@ export class InscripcionPrivadaService {
     }
 
     return this.aVista(titular, acompanantes, cfg.evento, null);
+  }
+
+  // Decide si el documento puede inscribirse por la modalidad de agrupaciones.
+  // null = no puede. Ver VALIDAR_MEMBRESIA_AGRUPACION.
+  private async participanteAgrupacion(
+    documento: string,
+  ): Promise<{ estudiante: Estudiante; agrupaciones: string[] } | null> {
+    const estudiante = await this.estudianteRepo.findOneBy({ documento: documento.trim() });
+    if (!estudiante) return null;
+
+    // Se consulta siempre, solo para mostrar el nombre si el estudiante sí está registrado
+    const relaciones = await this.agrupacionesActivas(estudiante.id);
+    if (VALIDAR_MEMBRESIA_AGRUPACION && relaciones.length === 0) return null;
+
+    const agrupaciones = relaciones.length
+      ? relaciones.map((r) => r.agrupacion.nombre)
+      : [AGRUPACION_SIN_REGISTRO];
+    return { estudiante, agrupaciones };
   }
 
   private agrupacionesActivas(estudianteId: string): Promise<EstudianteAgrupacion[]> {
