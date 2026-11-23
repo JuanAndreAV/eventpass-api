@@ -156,7 +156,7 @@ export class EstudiantesService {
     });
     const agrupacionIds = membresias.map((m) => m.agrupacionId);
 
-    const [integrantes, equipo, totalInscripciones] = await Promise.all([
+    const [integrantes, equipo, totalInscripciones, equipoEscuela] = await Promise.all([
       agrupacionIds.length
         ? this.estAgrRepository
             .createQueryBuilder('ea')
@@ -174,6 +174,12 @@ export class EstudiantesService {
           })
         : Promise.resolve([] as EquipoAsignacion[]),
       this.asistenteRepository.count({ where: { estudiante: { id } } }),
+      // Director, apoyo y formadores de la escuela. Una persona que trabaja en
+      // varias escuelas tiene una asignación por escuela, así que aparece aquí también.
+      this.asignacionRepository.find({
+        where: { escuela: { id: estudiante.escuela.id }, activo: true, persona: { activo: true } },
+        relations: { persona: true, cargo: true },
+      }),
     ]);
 
     const totalPorAgrupacion = new Map(integrantes.map((r) => [r.agrupacionId, Number(r.total)]));
@@ -188,6 +194,11 @@ export class EstudiantesService {
         telefono: estudiante.escuela.telefono ?? null,
         email: estudiante.escuela.email ?? null,
         activa: estudiante.escuela.activa,
+        equipo: equipoEscuela
+          .sort((x, y) =>
+            this.rangoCargo(x.cargo.nombre) - this.rangoCargo(y.cargo.nombre) ||
+            x.persona.nombreCompleto.localeCompare(y.persona.nombreCompleto, 'es'))
+          .map((a) => this.aMiembroEquipo(a)),
       },
       tieneUsuario: !!estudiante.usuario,
       totalInscripciones,
@@ -201,15 +212,26 @@ export class EstudiantesService {
         totalIntegrantes: totalPorAgrupacion.get(m.agrupacionId) ?? 0,
         equipo: equipo
           .filter((a) => a.agrupacion?.id === m.agrupacionId)
-          .map((a) => ({
-            nombre: a.persona.nombreCompleto,
-            cargo: a.cargo.nombre,
-            detalle: a.detalle,
-            email: a.persona.email,
-            telefono: a.persona.telefono,
-          })),
+          .map((a) => this.aMiembroEquipo(a)),
       })),
     };
+  }
+
+  private aMiembroEquipo(a: EquipoAsignacion) {
+    return {
+      nombre: a.persona.nombreCompleto,
+      cargo: a.cargo.nombre,
+      detalle: a.detalle,
+      email: a.persona.email,
+      telefono: a.persona.telefono,
+    };
+  }
+
+  // Director primero, luego apoyo administrativo, luego el resto (formadores…)
+  private rangoCargo(nombre: string): number {
+    if (/director/i.test(nombre)) return 0;
+    if (/apoyo/i.test(nombre)) return 1;
+    return 2;
   }
 
   // No expone qrTokenMaster: es la credencial del carnet
